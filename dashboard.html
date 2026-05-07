@@ -135,6 +135,15 @@
     .panel h3 { margin: 0 0 4px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
     .panel .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 14px; }
 
+    /* CRITICAL: Chart.js with maintainAspectRatio:false fills its parent.
+       Without an explicit pixel height the canvas grows on every resize
+       tick and the page scrolls forever. Every <canvas> MUST live inside
+       a .chart-wrap. */
+    .chart-wrap            { position: relative; width: 100%; height: 260px; }
+    .chart-wrap.tall       { height: 320px; }
+    .chart-wrap.short      { height: 200px; }
+    .chart-wrap.donut      { height: 240px; }
+
     .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 0; }
     .legend .item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
     .legend .dot { width: 9px; height: 9px; border-radius: 50%; }
@@ -218,19 +227,19 @@
       <div class="panel">
         <h3>Daily Lead Volume &amp; Qualification Rate</h3>
         <div class="sub">Total leads (bars) vs % qualified per day (line) — spot days where traffic quality spikes or crashes.</div>
-        <canvas id="chartDaily" height="120"></canvas>
+        <div class="chart-wrap tall"><canvas id="chartDaily"></canvas></div>
       </div>
       <div class="panel">
         <h3>Overall Lead Quality</h3>
         <div class="sub">Proportion of leads that are genuinely useful.</div>
-        <canvas id="chartDonut" height="220"></canvas>
+        <div class="chart-wrap donut"><canvas id="chartDonut"></canvas></div>
       </div>
     </div>
 
     <div class="panel" style="margin-top: 16px;">
       <h3>Quality Breakdown by Source</h3>
       <div class="sub">Stacked view — each bar = 100% of that source's leads.</div>
-      <canvas id="chartSource" height="90"></canvas>
+      <div class="chart-wrap"><canvas id="chartSource"></canvas></div>
     </div>
   </div>
 
@@ -259,7 +268,7 @@
       </div>
       <div class="panel"><h3>Close Rate by Variant</h3>
         <div class="sub">Higher = better.</div>
-        <canvas id="chartVariant" height="220"></canvas>
+        <div class="chart-wrap"><canvas id="chartVariant"></canvas></div>
       </div>
     </div>
   </div>
@@ -303,6 +312,18 @@
 
 let CHARTS = {};   // active Chart.js instances, keyed by canvas id (so we can destroy on re-render)
 let PAYLOAD = null;
+let RENDERED_TABS = {};  // tabs whose charts have been rendered for the current payload
+
+// Chart.js global defaults — disable animation (big perf win on re-render)
+// and force the modal's font/colors so we don't override per-chart.
+if (window.Chart) {
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.color       = '#8993A8';
+  Chart.defaults.animation   = false;       // No tween → snappy filter Apply
+  Chart.defaults.responsive  = true;
+  Chart.defaults.maintainAspectRatio = false;
+  Chart.defaults.resizeDelay = 100;         // Debounce ResizeObserver
+}
 
 const fmt = {
   int:   n => (n == null || isNaN(n)) ? '0' : Math.round(n).toLocaleString('en-US'),
@@ -317,12 +338,16 @@ const COLORS = {
 const catColor = c => ({ Qualified: COLORS.qualified, Unqualified: COLORS.unqualified, Junk: COLORS.junk, Other: COLORS.other, Unknown: COLORS.unknown }[c] || COLORS.accent);
 
 // ----- Tab switching -------------------------------------------------------
+// We only render each tab's charts when the tab is first activated for a given
+// payload — Chart.js can't accurately size a canvas inside display:none, so
+// rendering hidden charts is both wasteful and visually broken.
 document.getElementById('tabs').addEventListener('click', e => {
   const t = e.target.closest('.tab'); if (!t) return;
   document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
   document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
   t.classList.add('active');
   document.getElementById('pane-' + t.dataset.tab).classList.add('active');
+  renderTab(t.dataset.tab);
 });
 
 // ----- Filters -------------------------------------------------------------
@@ -354,28 +379,51 @@ function loadDashboard() {
 }
 
 // ============================================================================
-// Render
+// Render — paint header/filters/footnote + tables (cheap), then render only
+// the currently-active tab's charts. Other tabs render lazily on click.
 // ============================================================================
 function render(p) {
   applyBrand(p.brand);
   populateFilterOptions(p.filterOptions);
   paintFootnote(p);
-
-  // Overview
-  paintKpiStrip(p.kpis);
   paintQualityLegend(p.qualityBreakdown);
-  drawDailyChart(p.daily);
-  drawDonut(p.qualityBreakdown);
-  drawSourceStack(p.qualityBySource);
 
-  // Other tabs
+  // Tables are cheap — paint them all up front so they're ready when the user
+  // switches tabs (no flash of empty content).
+  paintKpiStrip(p.kpis);
   paintTable('campaignTable',  p.campaignTable, true);
   paintTable('creativeTable',  p.adCreativeTable, true);
   paintTable('variantTable',   p.pageVariantTable, true);
-  drawVariantBar(p.pageVariantTable);
   paintSources(p.sourceTable, p.fbclidCoverage);
-  paintForms(p.formQuestions);
   paintAlerts(p.alerts);
+
+  // Reset per-payload tab cache so all chart-bearing tabs re-render.
+  RENDERED_TABS = {};
+  // Render charts for whichever tab is currently active.
+  const active = document.querySelector('.tab.active');
+  renderTab(active ? active.dataset.tab : 'overview');
+}
+
+/** Render the chart(s) for a specific tab. No-op if already rendered for
+ *  the current payload (filter Apply resets the cache). */
+function renderTab(name) {
+  if (!PAYLOAD || RENDERED_TABS[name]) return;
+  RENDERED_TABS[name] = true;
+  const p = PAYLOAD;
+  switch (name) {
+    case 'overview':
+      drawDailyChart(p.daily);
+      drawDonut(p.qualityBreakdown);
+      drawSourceStack(p.qualityBySource);
+      break;
+    case 'variants':
+      drawVariantBar(p.pageVariantTable);
+      break;
+    case 'forms':
+      paintForms(p.formQuestions);
+      break;
+    // campaigns / creatives / sources / alerts are tables only — no charts.
+  }
 }
 
 function applyBrand(b) {
@@ -441,16 +489,11 @@ function paintQualityLegend(breakdown) {
 // ----- Charts --------------------------------------------------------------
 function destroy(id) { if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; } }
 
-function chartDefaults() {
-  return {
-    color: '#8993A8',
-    plugins: { legend: { labels: { color: '#E6E9F2' } } },
-    scales: {
-      x: { ticks: { color: '#8993A8' }, grid: { color: '#243149' } },
-      y: { ticks: { color: '#8993A8' }, grid: { color: '#243149' } }
-    }
-  };
-}
+// Per-chart options share a few visual defaults. Globals (animation off,
+// responsive, fonts) are set at the top of this script so we don't repeat
+// them here.
+const AXIS    = { ticks: { color: '#8993A8' }, grid: { color: '#243149' } };
+const LEGEND  = { labels: { color: '#E6E9F2' } };
 
 function drawDailyChart(daily) {
   destroy('chartDaily');
@@ -465,15 +508,18 @@ function drawDailyChart(daily) {
           borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.15)', tension: 0.35, pointRadius: 3, yAxisID: 'y1' }
       ]
     },
-    options: Object.assign(chartDefaults(), {
-      maintainAspectRatio: false,
+    options: {
       interaction: { mode: 'index', intersect: false },
+      plugins: { legend: LEGEND },
       scales: {
-        x:  { ticks: { color: '#8993A8' }, grid: { color: '#243149' } },
-        y:  { position: 'left',  ticks: { color: '#8993A8' }, grid: { color: '#243149' }, beginAtZero: true, title: { display: true, text: 'Leads', color: '#8993A8' } },
-        y1: { position: 'right', ticks: { color: '#8993A8', callback: v => v + '%' }, grid: { drawOnChartArea: false }, beginAtZero: true, max: 100, title: { display: true, text: 'Qual %', color: '#8993A8' } }
+        x:  AXIS,
+        y:  Object.assign({ position: 'left',  beginAtZero: true,
+              title: { display: true, text: 'Leads', color: '#8993A8' } }, AXIS),
+        y1: { position: 'right', ticks: { color: '#8993A8', callback: v => v + '%' },
+              grid: { drawOnChartArea: false }, beginAtZero: true, max: 100,
+              title: { display: true, text: 'Qual %', color: '#8993A8' } }
       }
-    })
+    }
   });
 }
 
@@ -487,7 +533,7 @@ function drawDonut(breakdown) {
       labels: filtered.map(b => b.label),
       datasets: [{ data: filtered.map(b => b.count), backgroundColor: filtered.map(b => catColor(b.label)), borderColor: '#131B2E', borderWidth: 2 }]
     },
-    options: { maintainAspectRatio: false, cutout: '62%', plugins: { legend: { labels: { color: '#E6E9F2' }, position: 'bottom' } } }
+    options: { cutout: '62%', plugins: { legend: Object.assign({ position: 'bottom' }, LEGEND) } }
   });
 }
 
@@ -506,14 +552,13 @@ function drawSourceStack(qbs) {
   CHARTS.chartSource = new Chart(ctx, {
     type: 'bar',
     data: { labels: qbs.sources, datasets: datasets },
-    options: Object.assign(chartDefaults(), {
-      maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#E6E9F2' }, position: 'bottom' } },
+    options: {
+      plugins: { legend: Object.assign({ position: 'bottom' }, LEGEND) },
       scales: {
-        x: { stacked: true, ticks: { color: '#8993A8' }, grid: { color: '#243149' } },
+        x: Object.assign({ stacked: true }, AXIS),
         y: { stacked: true, max: 100, ticks: { color: '#8993A8', callback: v => v + '%' }, grid: { color: '#243149' } }
       }
-    })
+    }
   });
 }
 
@@ -526,14 +571,13 @@ function drawVariantBar(rows) {
       labels: rows.map(r => r.key),
       datasets: [{ label: 'Close Rate', data: rows.map(r => r.closeRate * 100), backgroundColor: '#10B981', borderRadius: 6 }]
     },
-    options: Object.assign(chartDefaults(), {
-      maintainAspectRatio: false,
+    options: {
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: '#8993A8' }, grid: { color: '#243149' } },
+        x: AXIS,
         y: { ticks: { color: '#8993A8', callback: v => v + '%' }, grid: { color: '#243149' }, beginAtZero: true }
       }
-    })
+    }
   });
 }
 
@@ -585,7 +629,7 @@ function paintForms(qs) {
     '<div class="sub">' + escapeHtml(q.header) + '</div>' +
     (q.type === 'text'
       ? renderWords(q.words)
-      : '<canvas id="form_' + i + '" height="180"></canvas>') +
+      : '<div class="chart-wrap short"><canvas id="form_' + i + '"></canvas></div>') +
     '</div>'
   ).join('');
   // Render each chart after the canvases are in the DOM.
@@ -597,10 +641,11 @@ function paintForms(qs) {
         type: 'bar',
         data: { labels: q.bars.map(b => b.label),
                 datasets: [{ data: q.bars.map(b => b.count), backgroundColor: PAYLOAD.brand.accent, borderRadius: 6 }] },
-        options: Object.assign(chartDefaults(), {
-          indexAxis: 'y', maintainAspectRatio: false,
-          plugins: { legend: { display: false } }
-        })
+        options: {
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: AXIS, y: AXIS }
+        }
       });
     }
   });
