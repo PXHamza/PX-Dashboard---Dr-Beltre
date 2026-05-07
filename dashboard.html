@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <!-- Chart.js for all charts. Pinned major version. -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================================================
+       Base / theme — dark navy bg, neon accents, Inter font.
+       Colors are also injected from server-side BRAND so a per-client
+       brand swap takes one line in Config.gs.
+       ============================================================ */
+    :root {
+      --bg:      #0A0F1F;
+      --card:    #131B2E;
+      --card-2:  #1A2238;
+      --border:  #243149;
+      --text:    #E6E9F2;
+      --muted:   #8993A8;
+      --accent:  #FF2BD6;     /* PX hot pink */
+      --green:   #10B981;
+      --blue:    #3B82F6;
+      --pink:    #EC4899;
+      --red:     #EF4444;
+      --amber:   #F59E0B;
+      --purple:  #8B5CF6;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+
+    /* ============================================================
+       Header — brand left, date filter right.
+       ============================================================ */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 24px; border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #0E1530, var(--bg));
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand .logo {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: var(--accent); color: #fff; display: grid; place-items: center;
+      font-weight: 800; font-size: 16px; letter-spacing: -0.02em;
+    }
+    .brand .logo img { width: 38px; height: 38px; border-radius: 10px; object-fit: contain; }
+    .brand .title    { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+    .brand .subtitle { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+    .filters { display: flex; align-items: center; gap: 8px; }
+    .filters label { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .filters input[type="date"], .filters select {
+      background: var(--card); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 10px; font-family: inherit; font-size: 13px;
+      outline: none;
+    }
+    .filters input[type="date"]:focus, .filters select:focus { border-color: var(--green); }
+    .btn {
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+      padding: 7px 14px; border-radius: 8px; font-weight: 600; font-size: 13px;
+      cursor: pointer; transition: all 120ms;
+    }
+    .btn:hover { background: var(--card-2); border-color: #2F3D5C; }
+    .btn-primary { background: var(--green); color: #04130C; border-color: var(--green); }
+    .btn-primary:hover { background: #0BD18C; }
+
+    /* ============================================================
+       Tabs.
+       ============================================================ */
+    .tabs {
+      display: flex; gap: 2px; padding: 0 24px; background: var(--bg);
+      border-bottom: 1px solid var(--border); overflow-x: auto;
+    }
+    .tab {
+      padding: 14px 18px; cursor: pointer; color: var(--muted);
+      font-weight: 600; font-size: 13px; letter-spacing: 0.01em;
+      border-bottom: 2px solid transparent; white-space: nowrap;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+    /* ============================================================
+       Content area + grid.
+       ============================================================ */
+    .content { padding: 22px 24px 60px; }
+    .grid    { display: grid; gap: 16px; }
+    .grid-5  { grid-template-columns: repeat(5, 1fr); }
+    .grid-4  { grid-template-columns: repeat(4, 1fr); }
+    .grid-3  { grid-template-columns: repeat(3, 1fr); }
+    .grid-2  { grid-template-columns: repeat(2, 1fr); }
+    .grid-2-1 { grid-template-columns: 2fr 1fr; }
+
+    /* ============================================================
+       KPI cards — colored top border, big number, caption.
+       ============================================================ */
+    .kpi {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 16px 18px; position: relative; overflow: hidden;
+    }
+    .kpi::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent); box-shadow: 0 0 16px var(--accent);
+    }
+    .kpi.k-green::before  { background: var(--green);  box-shadow: 0 0 16px var(--green); }
+    .kpi.k-blue::before   { background: var(--blue);   box-shadow: 0 0 16px var(--blue); }
+    .kpi.k-pink::before   { background: var(--pink);   box-shadow: 0 0 16px var(--pink); }
+    .kpi.k-red::before    { background: var(--red);    box-shadow: 0 0 16px var(--red); }
+    .kpi.k-amber::before  { background: var(--amber);  box-shadow: 0 0 16px var(--amber); }
+    .kpi.k-purple::before { background: var(--purple); box-shadow: 0 0 16px var(--purple); }
+    .kpi .label  { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .kpi .value  { font-size: 30px; font-weight: 800; margin-top: 8px; letter-spacing: -0.02em; }
+    .kpi .meta   { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .kpi .pill   { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-right: 6px; background: rgba(255,43,214,0.12); color: var(--accent); }
+    .kpi .pill.green { background: rgba(16,185,129,0.12); color: var(--green); }
+    .kpi .pill.blue  { background: rgba(59,130,246,0.15); color: var(--blue); }
+
+    /* ============================================================
+       Panel (chart container) + table.
+       ============================================================ */
+    .panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px;
+    }
+    .panel h3 { margin: 0 0 4px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+    .panel .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 14px; }
+
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 0; }
+    .legend .item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+    .legend .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: var(--card-2); }
+    tr:last-child td { border-bottom: none; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+
+    .word { display: inline-block; padding: 4px 10px; margin: 4px;
+            background: rgba(255,43,214,0.10); color: var(--accent); border-radius: 999px;
+            font-weight: 600; }
+
+    /* Loading + footer */
+    .loading {
+      position: fixed; inset: 0; background: rgba(10,15,31,0.9);
+      display: grid; place-items: center; z-index: 999; pointer-events: all;
+    }
+    .spinner {
+      width: 38px; height: 38px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 700ms linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footnote { color: var(--muted); font-size: 11.5px; padding: 0 24px 16px; }
+    .pane { display: none; }
+    .pane.active { display: block; }
+    .empty { color: var(--muted); padding: 28px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<!-- =====================================================================
+     Header bar — brand on the left, date filter on the right.
+     ===================================================================== -->
+<div class="header">
+  <div class="brand">
+    <div class="logo" id="brandLogo">PX</div>
+    <div>
+      <div class="title"    id="brandTitle">PX Lead Intelligence</div>
+      <div class="subtitle" id="brandSubtitle">Funnel Quality &amp; Ad Performance</div>
+    </div>
+  </div>
+  <div class="filters">
+    <label>From</label>
+    <input type="date" id="fromDate">
+    <label>To</label>
+    <input type="date" id="toDate">
+    <select id="sourceFilter">  <option value="">All sources</option>  </select>
+    <select id="campaignFilter"><option value="">All campaigns</option></select>
+    <button class="btn btn-primary" id="applyBtn">Apply</button>
+    <button class="btn"             id="allTimeBtn">All Time</button>
+  </div>
+</div>
+
+<!-- =====================================================================
+     Tabs.
+     ===================================================================== -->
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="overview">📊 Overview</div>
+  <div class="tab"        data-tab="campaigns">🎯 Campaigns</div>
+  <div class="tab"        data-tab="creatives">🖼️ Ad Creatives</div>
+  <div class="tab"        data-tab="variants">🧪 Page Variants</div>
+  <div class="tab"        data-tab="sources">🌐 Sources</div>
+  <div class="tab"        data-tab="forms">📝 Form Insights</div>
+  <div class="tab"        data-tab="alerts">🚨 Alerts</div>
+</div>
+
+<div class="content">
+
+  <!-- Overview ============================================================ -->
+  <div class="pane active" id="pane-overview">
+    <div class="grid grid-5" id="kpiStrip"></div>
+
+    <div class="legend" id="qualityLegend"></div>
+
+    <div class="grid grid-2-1" style="margin-top: 6px;">
+      <div class="panel">
+        <h3>Daily Lead Volume &amp; Qualification Rate</h3>
+        <div class="sub">Total leads (bars) vs % qualified per day (line) — spot days where traffic quality spikes or crashes.</div>
+        <canvas id="chartDaily" height="120"></canvas>
+      </div>
+      <div class="panel">
+        <h3>Overall Lead Quality</h3>
+        <div class="sub">Proportion of leads that are genuinely useful.</div>
+        <canvas id="chartDonut" height="220"></canvas>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 16px;">
+      <h3>Quality Breakdown by Source</h3>
+      <div class="sub">Stacked view — each bar = 100% of that source's leads.</div>
+      <canvas id="chartSource" height="90"></canvas>
+    </div>
+  </div>
+
+  <!-- Campaigns =========================================================== -->
+  <div class="pane" id="pane-campaigns">
+    <div class="panel"><h3>Campaign Performance</h3>
+      <div class="sub">Sorted by revenue. Drill into Ad Creatives or Page Variants from the tabs above.</div>
+      <div id="campaignTable"></div>
+    </div>
+  </div>
+
+  <!-- Ad Creatives ======================================================== -->
+  <div class="pane" id="pane-creatives">
+    <div class="panel"><h3>Ad Creative Performance</h3>
+      <div class="sub">Which ads deliver the best lead categories and revenue, not just the most volume.</div>
+      <div id="creativeTable"></div>
+    </div>
+  </div>
+
+  <!-- Page Variants ======================================================= -->
+  <div class="pane" id="pane-variants">
+    <div class="grid grid-2-1">
+      <div class="panel"><h3>Page Variant Performance</h3>
+        <div class="sub">Volume, quality, sales, revenue and close rate by landing-page variant.</div>
+        <div id="variantTable"></div>
+      </div>
+      <div class="panel"><h3>Close Rate by Variant</h3>
+        <div class="sub">Higher = better.</div>
+        <canvas id="chartVariant" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sources ============================================================= -->
+  <div class="pane" id="pane-sources">
+    <div class="grid grid-4" id="sourceKpis" style="margin-bottom: 16px;"></div>
+    <div class="panel"><h3>Source Rollup</h3>
+      <div class="sub">Volume, quality, sales and revenue by traffic source.</div>
+      <div id="sourceTable"></div>
+    </div>
+  </div>
+
+  <!-- Form Insights ======================================================= -->
+  <div class="pane" id="pane-forms">
+    <div id="formInsights" class="grid grid-2"></div>
+  </div>
+
+  <!-- Alerts ============================================================== -->
+  <div class="pane" id="pane-alerts">
+    <div class="grid grid-3" id="alertKpis" style="margin-bottom: 16px;"></div>
+    <div class="panel"><h3>Underperforming Campaigns</h3>
+      <div class="sub">Auto-flagged when Qualified % &lt; 30% or Rev/Lead &lt; $50.</div>
+      <div id="alertTable"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Refresh footnote — surfaces which columns the dashboard mapped, so a
+     mis-named header is easy to diagnose. -->
+<div class="footnote" id="footnote"></div>
+
+<div class="loading" id="loading"><div class="spinner"></div></div>
+
+<script>
+// ============================================================================
+// Tiny render layer — fetches the payload from Apps Script and paints each tab.
+// All data work happens server-side; this file only formats and charts it.
+// ============================================================================
+
+let CHARTS = {};   // active Chart.js instances, keyed by canvas id (so we can destroy on re-render)
+let PAYLOAD = null;
+
+const fmt = {
+  int:   n => (n == null || isNaN(n)) ? '0' : Math.round(n).toLocaleString('en-US'),
+  pct:   (n, dp = 1) => (n == null || isNaN(n)) ? '0%' : (n * 100).toFixed(dp) + '%',
+  money: n => (n == null || isNaN(n)) ? '$0' : '$' + Math.round(n).toLocaleString('en-US'),
+  money2:n => (n == null || isNaN(n)) ? '$0.00' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+};
+const COLORS = {
+  qualified: '#10B981', unqualified: '#F59E0B', junk: '#EF4444',
+  other: '#8B5CF6', unknown: '#64748B', accent: '#FF2BD6'
+};
+const catColor = c => ({ Qualified: COLORS.qualified, Unqualified: COLORS.unqualified, Junk: COLORS.junk, Other: COLORS.other, Unknown: COLORS.unknown }[c] || COLORS.accent);
+
+// ----- Tab switching -------------------------------------------------------
+document.getElementById('tabs').addEventListener('click', e => {
+  const t = e.target.closest('.tab'); if (!t) return;
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('pane-' + t.dataset.tab).classList.add('active');
+});
+
+// ----- Filters -------------------------------------------------------------
+document.getElementById('applyBtn').addEventListener('click', loadDashboard);
+document.getElementById('allTimeBtn').addEventListener('click', () => {
+  document.getElementById('fromDate').value = '';
+  document.getElementById('toDate').value = '';
+  loadDashboard();
+});
+
+// ----- Initial load --------------------------------------------------------
+window.addEventListener('load', loadDashboard);
+
+function loadDashboard() {
+  document.getElementById('loading').style.display = 'grid';
+  const filters = {
+    fromIso:      document.getElementById('fromDate').value || null,
+    toIso:        document.getElementById('toDate').value   || null,
+    source:       document.getElementById('sourceFilter').value || '',
+    campaign:     document.getElementById('campaignFilter').value || ''
+  };
+  google.script.run
+    .withSuccessHandler(p => { PAYLOAD = p; render(p); document.getElementById('loading').style.display = 'none'; })
+    .withFailureHandler(err => {
+      document.getElementById('loading').style.display = 'none';
+      alert('Failed to load dashboard:\n\n' + (err && err.message ? err.message : err));
+    })
+    .getDashboardPayload(filters);
+}
+
+// ============================================================================
+// Render
+// ============================================================================
+function render(p) {
+  applyBrand(p.brand);
+  populateFilterOptions(p.filterOptions);
+  paintFootnote(p);
+
+  // Overview
+  paintKpiStrip(p.kpis);
+  paintQualityLegend(p.qualityBreakdown);
+  drawDailyChart(p.daily);
+  drawDonut(p.qualityBreakdown);
+  drawSourceStack(p.qualityBySource);
+
+  // Other tabs
+  paintTable('campaignTable',  p.campaignTable, true);
+  paintTable('creativeTable',  p.adCreativeTable, true);
+  paintTable('variantTable',   p.pageVariantTable, true);
+  drawVariantBar(p.pageVariantTable);
+  paintSources(p.sourceTable, p.fbclidCoverage);
+  paintForms(p.formQuestions);
+  paintAlerts(p.alerts);
+}
+
+function applyBrand(b) {
+  document.getElementById('brandTitle').textContent = b.title;
+  document.getElementById('brandSubtitle').textContent = b.subtitle;
+  document.title = b.title;
+  if (b.logoUrl) {
+    document.getElementById('brandLogo').innerHTML = '<img src="' + b.logoUrl + '" alt="logo">';
+  }
+  if (b.accent) document.documentElement.style.setProperty('--accent', b.accent);
+}
+
+function populateFilterOptions(opts) {
+  const src = document.getElementById('sourceFilter');
+  const cmp = document.getElementById('campaignFilter');
+  // Re-fill only on first load (preserve user's selection on refresh).
+  if (src.options.length <= 1) {
+    opts.sources.forEach(s => src.add(new Option(s, s)));
+  }
+  if (cmp.options.length <= 1) {
+    opts.campaigns.forEach(c => cmp.add(new Option(c, c)));
+  }
+}
+
+function paintFootnote(p) {
+  const ts = new Date(p.refreshedAt).toLocaleString();
+  const cols = Object.keys(p.columnsResolved).map(k => k + ' → ' + p.columnsResolved[k]).join('  •  ');
+  document.getElementById('footnote').innerHTML =
+    p.rowCount + ' rows in view  •  refreshed ' + ts + '<br>' +
+    '<span style="opacity:0.6">Column mapping: ' + cols + '</span>';
+}
+
+// ----- Overview KPI strip --------------------------------------------------
+function paintKpiStrip(k) {
+  const cards = [
+    { color: 'green', label: 'Total Leads',     value: fmt.int(k.totalLeads),
+      meta: '<span class="pill green">' + fmt.int(k.newLeads) + ' new</span>'
+            + '<span class="pill">' + fmt.int(k.duplicates) + ' dupes</span>' },
+    { color: 'blue',  label: 'Qualification Rate', value: fmt.pct(k.qualPct),
+      meta: fmt.int(k.qualified) + ' qualified leads' },
+    { color: 'pink',  label: 'Duplicate Rate',  value: fmt.pct(k.dupePct),
+      meta: fmt.int(k.duplicates) + ' duplicate leads' },
+    { color: 'red',   label: 'Close Rate',      value: fmt.pct(k.closeRate),
+      meta: fmt.int(k.sales) + ' sales' },
+    { color: 'amber', label: 'Revenue',         value: fmt.money(k.revenue),
+      meta: fmt.money2(k.revPerLead) + ' / lead' }
+  ];
+  document.getElementById('kpiStrip').innerHTML = cards.map(c =>
+    '<div class="kpi k-' + c.color + '">' +
+      '<div class="label">' + c.label + '</div>' +
+      '<div class="value">' + c.value + '</div>' +
+      '<div class="meta">'  + c.meta  + '</div>' +
+    '</div>').join('');
+}
+
+function paintQualityLegend(breakdown) {
+  document.getElementById('qualityLegend').innerHTML = breakdown
+    .filter(b => b.count > 0)
+    .map(b => '<div class="item"><span class="dot" style="background:' + catColor(b.label) + '"></span>' + b.label + '</div>')
+    .join('');
+}
+
+// ----- Charts --------------------------------------------------------------
+function destroy(id) { if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; } }
+
+function chartDefaults() {
+  return {
+    color: '#8993A8',
+    plugins: { legend: { labels: { color: '#E6E9F2' } } },
+    scales: {
+      x: { ticks: { color: '#8993A8' }, grid: { color: '#243149' } },
+      y: { ticks: { color: '#8993A8' }, grid: { color: '#243149' } }
+    }
+  };
+}
+
+function drawDailyChart(daily) {
+  destroy('chartDaily');
+  const ctx = document.getElementById('chartDaily').getContext('2d');
+  CHARTS.chartDaily = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: daily.map(d => d.date),
+      datasets: [
+        { type: 'bar',  label: 'Total Leads', data: daily.map(d => d.total), backgroundColor: 'rgba(59,130,246,0.55)', borderColor: '#3B82F6', borderWidth: 1, yAxisID: 'y' },
+        { type: 'line', label: 'Qual %',      data: daily.map(d => d.qualPct * 100),
+          borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.15)', tension: 0.35, pointRadius: 3, yAxisID: 'y1' }
+      ]
+    },
+    options: Object.assign(chartDefaults(), {
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x:  { ticks: { color: '#8993A8' }, grid: { color: '#243149' } },
+        y:  { position: 'left',  ticks: { color: '#8993A8' }, grid: { color: '#243149' }, beginAtZero: true, title: { display: true, text: 'Leads', color: '#8993A8' } },
+        y1: { position: 'right', ticks: { color: '#8993A8', callback: v => v + '%' }, grid: { drawOnChartArea: false }, beginAtZero: true, max: 100, title: { display: true, text: 'Qual %', color: '#8993A8' } }
+      }
+    })
+  });
+}
+
+function drawDonut(breakdown) {
+  destroy('chartDonut');
+  const ctx = document.getElementById('chartDonut').getContext('2d');
+  const filtered = breakdown.filter(b => b.count > 0);
+  CHARTS.chartDonut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: filtered.map(b => b.label),
+      datasets: [{ data: filtered.map(b => b.count), backgroundColor: filtered.map(b => catColor(b.label)), borderColor: '#131B2E', borderWidth: 2 }]
+    },
+    options: { maintainAspectRatio: false, cutout: '62%', plugins: { legend: { labels: { color: '#E6E9F2' }, position: 'bottom' } } }
+  });
+}
+
+function drawSourceStack(qbs) {
+  destroy('chartSource');
+  const ctx = document.getElementById('chartSource').getContext('2d');
+  // Convert counts → 100% stacked.
+  const totals = qbs.sources.map((_, i) => qbs.series.reduce((s, ser) => s + ser.counts[i], 0));
+  const datasets = qbs.series
+    .filter(ser => ser.counts.some(c => c > 0))
+    .map(ser => ({
+      label: ser.category,
+      data: ser.counts.map((c, i) => totals[i] ? (c / totals[i]) * 100 : 0),
+      backgroundColor: catColor(ser.category)
+    }));
+  CHARTS.chartSource = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: qbs.sources, datasets: datasets },
+    options: Object.assign(chartDefaults(), {
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#E6E9F2' }, position: 'bottom' } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#8993A8' }, grid: { color: '#243149' } },
+        y: { stacked: true, max: 100, ticks: { color: '#8993A8', callback: v => v + '%' }, grid: { color: '#243149' } }
+      }
+    })
+  });
+}
+
+function drawVariantBar(rows) {
+  destroy('chartVariant');
+  const ctx = document.getElementById('chartVariant').getContext('2d');
+  CHARTS.chartVariant = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.key),
+      datasets: [{ label: 'Close Rate', data: rows.map(r => r.closeRate * 100), backgroundColor: '#10B981', borderRadius: 6 }]
+    },
+    options: Object.assign(chartDefaults(), {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8993A8' }, grid: { color: '#243149' } },
+        y: { ticks: { color: '#8993A8', callback: v => v + '%' }, grid: { color: '#243149' }, beginAtZero: true }
+      }
+    })
+  });
+}
+
+// ----- Tables --------------------------------------------------------------
+function paintTable(elId, rows, includeQuality) {
+  const html = !rows.length ? '<div class="empty">No data for the current filters.</div>' :
+    '<table><thead><tr>' +
+      '<th>Name</th>' +
+      '<th class="num">Leads</th>' +
+      '<th class="num">Qualified</th>' +
+      (includeQuality ? '<th class="num">Qual %</th>' : '') +
+      '<th class="num">Sales</th>' +
+      '<th class="num">Close Rate</th>' +
+      '<th class="num">Revenue</th>' +
+      '<th class="num">Rev / Lead</th>' +
+    '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' +
+      '<td>' + escapeHtml(r.key) + '</td>' +
+      '<td class="num">' + fmt.int(r.leads) + '</td>' +
+      '<td class="num">' + fmt.int(r.qualified) + '</td>' +
+      (includeQuality ? '<td class="num">' + fmt.pct(r.qualPct) + '</td>' : '') +
+      '<td class="num">' + fmt.int(r.sales) + '</td>' +
+      '<td class="num">' + fmt.pct(r.closeRate) + '</td>' +
+      '<td class="num">' + fmt.money(r.revenue) + '</td>' +
+      '<td class="num">' + fmt.money2(r.revPerLead) + '</td>' +
+    '</tr>').join('') + '</tbody></table>';
+  document.getElementById(elId).innerHTML = html;
+}
+
+function paintSources(rows, fb) {
+  paintTable('sourceTable', rows, true);
+  document.getElementById('sourceKpis').innerHTML = [
+    { color: 'blue',  label: 'FB Leads',         value: fmt.int(fb.fbLeads),    meta: 'Identified by source name' },
+    { color: 'green', label: 'With fbclid',      value: fmt.int(fb.withFbclid), meta: 'Pixel / CAPI captured' },
+    { color: 'amber', label: 'fbclid Coverage',  value: fmt.pct(fb.coverage),   meta: 'Higher = healthier pixel' },
+    { color: 'red',   label: 'Missing fbclid',   value: fmt.int(fb.fbLeads - fb.withFbclid), meta: 'Investigate landing pages' }
+  ].map(c =>
+    '<div class="kpi k-' + c.color + '"><div class="label">' + c.label +
+    '</div><div class="value">' + c.value + '</div><div class="meta">' + c.meta + '</div></div>'
+  ).join('');
+}
+
+// ----- Form Insights -------------------------------------------------------
+function paintForms(qs) {
+  const root = document.getElementById('formInsights');
+  if (!qs.length) { root.innerHTML = '<div class="empty">No form questions configured. Add entries to FORM_QUESTIONS in Config.gs.</div>'; return; }
+  root.innerHTML = qs.map((q, i) =>
+    '<div class="panel"><h3>' + escapeHtml(q.label) + '</h3>' +
+    '<div class="sub">' + escapeHtml(q.header) + '</div>' +
+    (q.type === 'text'
+      ? renderWords(q.words)
+      : '<canvas id="form_' + i + '" height="180"></canvas>') +
+    '</div>'
+  ).join('');
+  // Render each chart after the canvases are in the DOM.
+  qs.forEach((q, i) => {
+    if (q.type === 'choice' && q.bars.length) {
+      const ctx = document.getElementById('form_' + i).getContext('2d');
+      destroy('form_' + i);
+      CHARTS['form_' + i] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: q.bars.map(b => b.label),
+                datasets: [{ data: q.bars.map(b => b.count), backgroundColor: PAYLOAD.brand.accent, borderRadius: 6 }] },
+        options: Object.assign(chartDefaults(), {
+          indexAxis: 'y', maintainAspectRatio: false,
+          plugins: { legend: { display: false } }
+        })
+      });
+    }
+  });
+}
+
+function renderWords(words) {
+  if (!words.length) return '<div class="empty">No responses yet.</div>';
+  const max = words[0].count, min = words[words.length - 1].count;
+  return '<div>' + words.map(w => {
+    const t = max === min ? 1 : (w.count - min) / (max - min);
+    const size = (12 + t * 14).toFixed(1);
+    return '<span class="word" style="font-size:' + size + 'px">' +
+      escapeHtml(w.word) + ' <span style="opacity:0.6">' + w.count + '</span></span>';
+  }).join('') + '</div>';
+}
+
+// ----- Alerts --------------------------------------------------------------
+function paintAlerts(a) {
+  document.getElementById('alertKpis').innerHTML = [
+    { color: 'red',   label: 'No Sales Notes',  value: fmt.int(a.noNotes),  meta: 'Leads without any follow-up logged' },
+    { color: 'amber', label: 'Aging Leads',     value: fmt.int(a.aging),    meta: '3+ days old, no notes' },
+    { color: 'pink',  label: 'Flagged Campaigns', value: fmt.int(a.underperforming.length), meta: 'Below quality / Rev/Lead floor' }
+  ].map(c =>
+    '<div class="kpi k-' + c.color + '"><div class="label">' + c.label +
+    '</div><div class="value">' + c.value + '</div><div class="meta">' + c.meta + '</div></div>'
+  ).join('');
+
+  const rows = a.underperforming;
+  document.getElementById('alertTable').innerHTML = !rows.length
+    ? '<div class="empty">All campaigns above thresholds. ✅</div>'
+    : '<table><thead><tr><th>Campaign</th><th class="num">Leads</th><th class="num">Qual %</th><th class="num">Rev / Lead</th></tr></thead><tbody>' +
+      rows.map(r => '<tr><td>' + escapeHtml(r.campaign) + '</td>' +
+        '<td class="num">' + fmt.int(r.leads) + '</td>' +
+        '<td class="num neg">' + fmt.pct(r.qualPct) + '</td>' +
+        '<td class="num neg">' + fmt.money2(r.revPerLead) + '</td></tr>').join('') +
+      '</tbody></table>';
+}
+
+function escapeHtml(s) {
+  return (s == null ? '' : s.toString()).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+</script>
+
+</body>
+</html>

@@ -1,82 +1,92 @@
-# PX Insights — Lead Generation Dashboard
+# PX Lead Intelligence — Popup Dashboard
 
-A self-contained Google Apps Script dashboard for Persuasion Experience lead-gen
-data. Drops onto any Google Sheet that follows the columns A → S below, adds a
-**PX Insights** menu, and renders ten branded tabs of charts, tables, and KPIs.
+A Google Apps Script project that adds a **PX Insights → 📊 Dashboard** menu to
+any Google Sheet. Clicking it opens a modal popup with KPI cards, charts, and
+tables — read-only, no extra tabs created in the spreadsheet.
 
-## Source columns
+## Three files, only one of them is client-specific
 
-| Col | Field |
-|----|-------|
-| A | Date |
-| B | Name |
-| C | Email |
-| D | Phone Number |
-| E | Lead Category (Qualified / Unqualified / Junk / Other) |
-| F | Sales Team Notes |
-| G | Sale Revenue |
-| H | Source |
-| I | Campaign |
-| J | Ad Set |
-| K | Ad |
-| L | Page Variant |
-| M | Fbclid |
-| N | How long have you been struggling with your weight? |
-| O | Are you currently diabetic? |
-| P | How much weight are you looking to lose? |
-| Q | What's your biggest motivation right now? |
-| R | When would you look at getting started? |
-| S | Anything else you would like to tell us? |
-
-The sheet that holds these rows must be named **`Lead Data`** (configurable via
-`CONFIG.DATA_SHEET_NAME` in `Config.gs`).
+| File | Purpose | Edit per client? |
+|------|---------|------------------|
+| `Code.gs` | Server-side logic: menu, data loading, KPI math, dialog launcher. | Rarely |
+| `dashboard.html` | Popup UI: tabs, KPI cards, Chart.js charts. | Rarely |
+| `Config.gs` | Column mapping, form questions, brand. | **Always — this is the client config.** |
+| `appsscript.json` | Manifest. | No |
 
 ## Install
 
-1. Open the target Google Sheet.
-2. **Extensions → Apps Script** to open the script editor.
-3. Copy every `.gs` file from this repo into the editor (one file each):
-   `Code.gs`, `Config.gs`, `FormQuestions.gs`, `Utils.gs`, `Data.gs`,
-   `Theme.gs`, `Email.gs`, and the nine `SheetXxx.gs` files.
-4. Replace the contents of `appsscript.json` with the one from this repo
-   (you may need to enable "Show appsscript.json" via Project Settings).
-5. Save, close the editor, **reload the spreadsheet**.
-6. The **PX Insights** menu now appears in the sheet header. Click
-   **🚀 Build Dashboard** to create every tab.
+1. Open the target Google Sheet (must contain a tab with raw lead data — by
+   default named `Lead Data`).
+2. **Extensions → Apps Script**.
+3. Copy each file into the editor:
+   - `Code.gs` (overwrite the default)
+   - **+ → Script** → `Config` → paste `Config.gs`
+   - **+ → HTML** → `dashboard` → paste `dashboard.html`
+   - Project Settings → tick *"Show appsscript.json manifest"* → paste the manifest.
+4. Save the project, reload the spreadsheet.
+5. **PX Insights → 📊 Dashboard**.
 
-## Daily use
+## Deploying for a new client — 3-step config
 
-| Menu item | What it does |
-|-----------|--------------|
-| 📊 Dashboard | Builds every tab on first run, refreshes them on subsequent runs. Lands you on Overview. |
+Open `Config.gs`. Three blocks to look at:
 
-## Tabs
+### 1. Source sheet name
 
-1. **📊 Overview** — hero KPIs with ▲/▼ deltas, conversion funnel, daily volume, top combinations.
-2. **🎯 Campaigns** — campaign / ad-set / ad rollups, lead-quality matrix.
-3. **⭐ Lead Quality** — distribution donut, weekly category trend, weighted score per campaign.
-4. **🔁 Duplicates** — new vs. dupe split, dupe rate by campaign / ad.
-5. **🧪 A/B Testing** — page-variant performance with statistical significance.
-6. **🌐 Sources** — source rollup, fbclid coverage diagnostic.
-7. **📝 Form Insights** — distributions and word clouds for every question in `FormQuestions.gs`.
-8. **⏱ Time Trends** — daily volume, day × hour heatmap, sale-time stats.
-9. **🚨 Alerts** — leads missing notes, aging follow-ups, underperforming campaigns.
-10. **⚙️ Settings** — logo URL, CTA link, date range, filters, alert thresholds, weighted-quality weights.
+```js
+DATA_SHEET: 'Lead Data',
+```
 
-## Configuration cheatsheet
+### 2. Column mapping
 
-Everything reasonable to change is editable from the **⚙️ Settings** tab — no
-code changes required. Anything more structural (column layout, brand colors)
-lives in `Config.gs` near the top.
+Map each dashboard field to the **header text** in the client's data sheet
+(case-insensitive contains-match). If the client renames a header — say
+`Date` → `Created Date` — just update the value:
 
-To **add a new form question**, open `FormQuestions.gs` and append a new entry
-to `FORM_QUESTIONS`. The Form Insights tab picks it up automatically on the
-next refresh.
+```js
+COLUMNS: {
+  date:         'Created Date',     // matches "Created Date"
+  leadCategory: 'Status',           // matches "Lead Status"
+  saleRevenue:  'Closed Amount',
+  ...
+}
+```
 
-## Brand
+You can also pass a column letter (`'A'`, `'F'`, `'AA'`) if a header is
+ambiguous, or leave a value empty (`''`) if the client doesn't capture
+that field.
 
-Colors and fonts are pulled from the Persuasion Experience site:
-- Background `#0A0E27`
-- Accent (pink) `#FF2BD6`
-- Text `#FFFFFF` / `#C7C9D9`
-- Font: Montserrat
+### 3. Form questions
+
+Add or remove entries in `FORM_QUESTIONS` to match the client's form:
+
+```js
+{
+  header: 'How long have you been struggling with your weight?',  // Lookup key — header text
+  label:  'Struggle Duration',                                    // Shown above the chart
+  type:   'choice',                                               // 'choice' (bar chart) or 'text' (word cloud)
+  topN:   8                                                       // Bars / words to display
+}
+```
+
+That's it. No other file needs to change.
+
+## Tabs in the dashboard
+
+| Tab | Shows |
+|-----|-------|
+| 📊 Overview | 5 hero KPIs (Total Leads, Qualification Rate, Duplicate Rate, Close Rate, Revenue), daily lead-volume + qualification-rate combo chart, overall quality donut, quality-by-source stacked bar. |
+| 🎯 Campaigns | Campaign rollup: leads, qual %, sales, close rate, revenue, rev/lead. |
+| 🖼️ Ad Creatives | Same metrics rolled up by ad. |
+| 🧪 Page Variants | A/B variant table + close-rate bar chart. |
+| 🌐 Sources | Source rollup + fbclid coverage diagnostic. |
+| 📝 Form Insights | One chart per question in `FORM_QUESTIONS`. |
+| 🚨 Alerts | Sales-notes coverage, aging leads, underperforming campaigns. |
+
+## Filters in the popup
+
+- **From / To** date pickers, **Apply** button to refresh, **All Time** to clear the date range.
+- **Source** and **Campaign** dropdowns (auto-populated from the data).
+
+The footer at the bottom of the dialog always shows how many rows are in view,
+when the data was last refreshed, and which header each Config field resolved
+to — so a typo in `Config.gs` is immediately obvious.

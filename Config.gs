@@ -1,147 +1,133 @@
 /**
- * Config.gs
- * ----------------------------------------------------------------------------
- * Central configuration for the PX Insights dashboard.
+ * Config.gs — the ONLY file you need to edit when deploying this dashboard
+ * for a new client.
  *
- * Anything that would reasonably change over time lives here:
- *   - Brand colors / fonts (matches Persuasion Experience site styling)
- *   - Default logo URL and click-through link (the user can override these
- *     from the "⚙️ Settings" sheet without touching code)
- *   - Tab names, source-data column layout (A–S)
- *   - Alert thresholds, weighted-quality-score weights, lead-aging window
+ * Three things to look at:
+ *   1) CONFIG.DATA_SHEET    — the tab that holds the raw lead rows.
+ *   2) CONFIG.COLUMNS       — map dashboard fields to the client's column
+ *                             headers (case-insensitive). If a header is
+ *                             renamed or moves, just update the mapping —
+ *                             you never need to touch column letters.
+ *   3) FORM_QUESTIONS       — the open-ended form questions to chart in the
+ *                             "Form Insights" tab. Add / remove / reword
+ *                             freely, then re-open the dashboard.
  *
- * IMPORTANT: When you change a value here that lives in Settings (logo URL,
- * link URL, thresholds), the Settings sheet wins at runtime. CONFIG provides
- * the *defaults* used the first time the dashboard is built.
- * ----------------------------------------------------------------------------
+ * Everything else (KPI math, charts, layout) reads from this file via
+ * field keys, so a column move or a rename never breaks the dashboard.
  */
 
 const CONFIG = {
-  // -------------------------------------------------------------------------
-  // Source data layout — columns A through S of the leads sheet.
-  // Index is 1-based (A = 1) so it lines up with getRange() calls.
-  // -------------------------------------------------------------------------
-  DATA_SHEET_NAME: 'Lead Data',      // The tab that holds raw lead rows.
-  DATA_HEADER_ROW: 1,                // Row that contains the column headers.
-  DATA_FIRST_ROW: 2,                 // First row of actual data.
 
-  COLS: {
-    DATE: 1,            // A — Date (timestamp)
-    NAME: 2,            // B — Name
-    EMAIL: 3,           // C — Email
-    PHONE: 4,           // D — Phone Number
-    LEAD_CATEGORY: 5,   // E — Qualified / Unqualified / Junk / etc.
-    SALES_NOTES: 6,     // F — Sales Team Notes (free text)
-    SALE_REVENUE: 7,    // G — Sale Revenue (number, blank/0 = not closed)
-    SOURCE: 8,          // H — Traffic source (Facebook, Google, etc.)
-    CAMPAIGN: 9,        // I — Campaign name
-    AD_SET: 10,         // J — Ad Set name
-    AD: 11,             // K — Ad name
-    PAGE_VARIANT: 12,   // L — Landing-page variant (A/B test bucket)
-    FBCLID: 13,         // M — Facebook click ID (used for CAPI / pixel health)
+  // ---------------------------------------------------------------------------
+  // 1) Source sheet — must exist in the spreadsheet.
+  // ---------------------------------------------------------------------------
+  DATA_SHEET: 'Lead Data',
 
-    // Form-question columns (N–S). Defined once here, then consumed by
-    // FormQuestions.gs so a non-engineer can add Q7, Q8, Q9 without touching
-    // any of the dashboard tabs.
-    FORM_FIRST: 14,     // N
-    FORM_LAST: 19       // S
+  // ---------------------------------------------------------------------------
+  // 2) Column mapping — field key → header text in row 1 of DATA_SHEET.
+  //
+  //    Matching is case-insensitive and "contains-style", so 'Date' will
+  //    match a header named 'Created Date', 'Lead Date', 'Date Submitted', etc.
+  //    Set a value to '' (empty string) to disable that field for a client
+  //    that doesn't capture it (e.g. no Page Variant column → set to '').
+  //
+  //    You can also pass an exact column letter ('A', 'F', 'AA') if your
+  //    data sheet has duplicate header text and you need to disambiguate.
+  // ---------------------------------------------------------------------------
+  COLUMNS: {
+    date:         'Date',                // A — when the lead came in
+    name:         'Name',                // B
+    email:        'Email',               // C
+    phone:        'Phone',               // D
+    leadCategory: 'Lead Category',       // E — Qualified / Unqualified / Junk
+    salesNotes:   'Sales Team Notes',    // F
+    saleRevenue:  'Sale Revenue',        // G — numeric, blank/0 = not closed
+    source:       'Source',              // H — Facebook, Google, IG, etc.
+    campaign:     'Campaign',            // I
+    adSet:        'Ad Set',              // J
+    ad:           'Ad',                  // K
+    pageVariant:  'Page Variant',        // L
+    fbclid:       'Fbclid'               // M
   },
 
-  // -------------------------------------------------------------------------
-  // Brand — Persuasion Experience.
-  // Pulled from the hero screenshot: dark navy bg, hot-pink accent.
-  // -------------------------------------------------------------------------
-  BRAND: {
-    BG_DEEP:        '#0A0E27',  // Page background.
-    BG_CARD:        '#13162E',  // Card / panel background.
-    BG_CARD_ALT:    '#1A1E3A',  // Alternating card row.
-    ACCENT:         '#FF2BD6',  // Pink CTA / highlights.
-    ACCENT_SOFT:    '#7A1A66',  // Muted pink for subtle fills.
-    TEXT_PRIMARY:   '#FFFFFF',  // Main copy.
-    TEXT_SECONDARY: '#C7C9D9',  // Body / secondary copy.
-    TEXT_MUTED:     '#7A7E96',  // Captions, axis labels.
-    POSITIVE:       '#3DDC97',  // ▲ delta / good.
-    NEGATIVE:       '#FF5C7A',  // ▼ delta / bad.
-    GRID:           '#2A2E4A',  // Chart gridlines, table borders.
-    FONT:           'Montserrat'
-  },
-
-  // -------------------------------------------------------------------------
-  // Dashboard tab names. Centralised so we never have a typo mismatch.
-  // -------------------------------------------------------------------------
-  TABS: {
-    OVERVIEW:    '📊 Overview',
-    CAMPAIGNS:   '🎯 Campaigns',
-    QUALITY:     '⭐ Lead Quality',
-    DUPES:       '🔁 Duplicates',
-    AB:          '🧪 A/B Testing',
-    SOURCES:     '🌐 Sources',
-    FORMS:       '📝 Form Insights',
-    TIME:        '⏱ Time Trends',
-    ALERTS:      '🚨 Alerts',
-    SETTINGS:    '⚙️ Settings'
-  },
-
-  // -------------------------------------------------------------------------
-  // Defaults that the user can override from the Settings sheet.
-  // -------------------------------------------------------------------------
-  DEFAULTS: {
-    LOGO_URL:   'https://via.placeholder.com/300x80/0A0E27/FF2BD6?text=YOUR+LOGO',
-    LINK_URL:   'https://persuasionexperience.com',
-    LINK_LABEL: 'APPLY FOR YOUR FREE STRATEGY SESSION',
-
-    DATE_RANGE: 'Last 30',     // Today | Yesterday | Last 7 | Last 30 | MTD | Last Month | Custom
-    CUSTOM_FROM: '',           // Used only when DATE_RANGE = Custom (yyyy-mm-dd).
-    CUSTOM_TO:   '',
-
-    // Global filters — empty string = no filter, otherwise exact match.
-    FILTER_SOURCE: '',
-    FILTER_CAMPAIGN: '',
-    FILTER_LEAD_CATEGORY: '',
-    FILTER_PAGE_VARIANT: '',
-
-    // Alert thresholds.
-    LEAD_AGING_DAYS: 3,            // Lead with no notes after N days → flagged.
-    QUALIFIED_PCT_FLOOR: 30,       // Campaign flagged if Qualified% < this.
-    REV_PER_LEAD_FLOOR: 50,        // Campaign flagged if Rev/Lead < this.
-    DAILY_EMAIL_RECIPIENTS: '',    // Comma-separated emails for daily summary.
-
-    // Weighted quality score — points per lead category. Positive = good lead.
-    QS_WEIGHT_QUALIFIED:   1.0,
-    QS_WEIGHT_UNQUALIFIED: 0.2,
-    QS_WEIGHT_JUNK:       -0.5
-  },
-
-  // -------------------------------------------------------------------------
-  // Lead categories. We use loose matching (case-insensitive, contains)
-  // so the rows don't all have to be perfectly normalized.
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Lead-category vocabulary — raw values that map to each bucket.
+  // Matching is case-insensitive "contains".
+  // ---------------------------------------------------------------------------
   CATEGORIES: {
-    QUALIFIED:   ['qualified', 'qual'],
-    UNQUALIFIED: ['unqualified', 'unqual'],
-    JUNK:        ['junk', 'spam', 'fake']
+    Qualified:   ['qualified', 'qual'],
+    Unqualified: ['unqualified', 'unqual'],
+    Junk:        ['junk', 'spam', 'fake']
+  },
+
+  // ---------------------------------------------------------------------------
+  // 3) Brand — appears in the dialog header and as the chart accent.
+  // ---------------------------------------------------------------------------
+  BRAND: {
+    title:    'PX Lead Intelligence',
+    subtitle: 'Funnel Quality & Ad Performance',
+    logoUrl:  '',                                    // Optional: paste a public PNG/JPG URL
+    linkUrl:  'https://persuasionexperience.com',
+    linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
+    accent:   '#FF2BD6',                             // Hot pink (PX brand)
+    accent2:  '#10B981',                             // Action green
+    bg:       '#0A0F1F',                             // Dialog background
+    card:     '#131B2E'                              // KPI card background
   }
 };
 
-/**
- * Read a Settings value, falling back to the CONFIG.DEFAULTS entry.
- * The Settings sheet is built by SheetSettings.gs as a 2-column key/value
- * table; this is the single accessor everywhere else uses.
- */
-function getSetting(key) {
-  const ss = SpreadsheetApp.getActive();
-  const sheet = ss.getSheetByName(CONFIG.TABS.SETTINGS);
-  if (!sheet) return CONFIG.DEFAULTS[key];
+// =============================================================================
+// FORM_QUESTIONS — the open-ended questions to chart on the Form Insights tab.
+//
+// Each object:
+//   header  (string)  Header text in the data sheet (case-insensitive contains).
+//                     Leave alone if you don't know — Code.gs will look up the
+//                     exact column at runtime.
+//   label   (string)  Short label shown above the chart.
+//   type    'choice' | 'text'
+//                     'choice' → bar chart of the most common answers
+//                     'text'   → top words list (mini word cloud)
+//   topN    (number)  How many bars/words to render. Default 10.
+//
+// To add a question for a new client: append a new object. To remove one:
+// delete its entry. No other file needs to change.
+// =============================================================================
 
-  // Find the row whose column A matches the key.
-  const last = sheet.getLastRow();
-  if (last < 2) return CONFIG.DEFAULTS[key];
-  const values = sheet.getRange(2, 1, last - 1, 2).getValues();
-  for (let i = 0; i < values.length; i++) {
-    if (values[i][0] === key) {
-      const v = values[i][1];
-      return (v === '' || v === null || v === undefined) ? CONFIG.DEFAULTS[key] : v;
-    }
+const FORM_QUESTIONS = [
+  {
+    header: 'How long have you been struggling with your weight?',
+    label:  'Struggle Duration',
+    type:   'choice',
+    topN:   8
+  },
+  {
+    header: 'Are you currently diabetic?',
+    label:  'Diabetic',
+    type:   'choice',
+    topN:   6
+  },
+  {
+    header: 'How much weight are you looking to lose?',
+    label:  'Weight to Lose',
+    type:   'choice',
+    topN:   8
+  },
+  {
+    header: 'biggest motivation',
+    label:  'Motivation',
+    type:   'text',
+    topN:   20
+  },
+  {
+    header: 'When would you look at getting started?',
+    label:  'Start Timing',
+    type:   'choice',
+    topN:   8
+  },
+  {
+    header: 'Anything else you would like to tell us',
+    label:  'Other Notes',
+    type:   'text',
+    topN:   25
   }
-  return CONFIG.DEFAULTS[key];
-}
+];
