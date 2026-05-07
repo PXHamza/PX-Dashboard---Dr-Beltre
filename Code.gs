@@ -11,34 +11,34 @@
  * ----------------------------------------------------------------------------
  */
 
-/** Runs automatically when the spreadsheet is opened — installs the menu. */
+/**
+ * Runs automatically when the spreadsheet is opened.
+ * Installs a single "PX Insights" menu with one action: Dashboard.
+ *
+ * Clicking Dashboard builds every tab on first run, refreshes them on
+ * subsequent runs, and lands you on the Overview tab.
+ */
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('PX Insights')
-      .addItem('🚀 Build Dashboard',          'buildDashboard')
-      .addItem('🔄 Refresh Dashboard',        'refreshDashboard')
-      .addSeparator()
-      .addItem('⚙️ Open Settings',            'openSettings')
-      .addItem('🧪 Insert Sample Data',       'seedSampleData')
-      .addSeparator()
-      .addSubMenu(SpreadsheetApp.getUi().createMenu('Daily Email Summary')
-        .addItem('Send Now',                  'sendDailySummary')
-        .addItem('Install Daily Trigger (7am)','installDailyEmailTrigger')
-        .addItem('Remove Daily Trigger',      'uninstallDailyEmailTrigger'))
+      .addItem('📊 Dashboard', 'showDashboard')
       .addToUi();
 }
 
 /**
- * First-time setup. Safe to call repeatedly — it never destroys the raw
- * Leads sheet, only the dashboard tabs.
+ * Single entry point: build (if needed) + refresh + activate Overview.
+ * Safe to call repeatedly — it never touches the raw Lead Data sheet,
+ * only redraws the dashboard tabs.
  */
-function buildDashboard() {
+function showDashboard() {
   const ss = SpreadsheetApp.getActive();
-  ensureLeadsSheet(ss);
-  buildSettingsSheet();          // build Settings first so getSetting() works.
-  refreshDashboard();
-  ss.toast('Dashboard built. Use PX Insights → Refresh after editing Settings.', 'PX Insights', 6);
+  ensureLeadsSheet(ss);          // Creates an empty Lead Data sheet only if missing.
+  buildSettingsSheet();           // Creates Settings tab on first run.
+  refreshDashboard();             // Builds/refreshes every dashboard tab.
 }
+
+// Kept as an alias so any old menu wiring still works.
+function buildDashboard() { showDashboard(); }
 
 /**
  * Rebuild every dashboard tab from current data + Settings.

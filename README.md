@@ -28,7 +28,7 @@ data. Drops onto any Google Sheet that follows the columns A → S below, adds a
 | R | When would you look at getting started? |
 | S | Anything else you would like to tell us? |
 
-The sheet that holds these rows must be named **`Leads`** (configurable via
+The sheet that holds these rows must be named **`Lead Data`** (configurable via
 `CONFIG.DATA_SHEET_NAME` in `Config.gs`).
 
 ## Install
@@ -48,12 +48,7 @@ The sheet that holds these rows must be named **`Leads`** (configurable via
 
 | Menu item | What it does |
 |-----------|--------------|
-| 🚀 Build Dashboard | First-time setup — creates `Leads` (if missing), `⚙️ Settings`, and all dashboard tabs. |
-| 🔄 Refresh Dashboard | Re-runs every tab against current data + active filters. |
-| ⚙️ Open Settings | Jump to the Settings tab to edit logo, link, date range, filters, thresholds. |
-| 🧪 Insert Sample Data | Drops ~120 demo rows into Leads so you can verify rendering. |
-| Daily Email Summary → Send Now | Fire the daily email immediately. |
-| Daily Email Summary → Install Daily Trigger (7am) | Time-driven trigger sends a summary every morning. |
+| 📊 Dashboard | Builds every tab on first run, refreshes them on subsequent runs. Lands you on Overview. |
 
 ## Tabs
 

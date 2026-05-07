@@ -21,7 +21,7 @@ const CONFIG = {
   // Source data layout — columns A through S of the leads sheet.
   // Index is 1-based (A = 1) so it lines up with getRange() calls.
   // -------------------------------------------------------------------------
-  DATA_SHEET_NAME: 'Leads',          // The tab that holds raw lead rows.
+  DATA_SHEET_NAME: 'Lead Data',      // The tab that holds raw lead rows.
   DATA_HEADER_ROW: 1,                // Row that contains the column headers.
   DATA_FIRST_ROW: 2,                 // First row of actual data.
 
