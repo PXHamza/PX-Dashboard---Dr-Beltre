@@ -368,6 +368,13 @@ if (window.Chart) {
   Chart.defaults.responsive  = true;
   Chart.defaults.maintainAspectRatio = false;
   Chart.defaults.resizeDelay = 100;
+  // Dark-theme tooltips so charts match the rest of the dashboard.
+  Chart.defaults.plugins.tooltip.backgroundColor = '#0E1530';
+  Chart.defaults.plugins.tooltip.titleColor      = '#FFFFFF';
+  Chart.defaults.plugins.tooltip.bodyColor       = '#E6E9F2';
+  Chart.defaults.plugins.tooltip.borderColor     = '#243149';
+  Chart.defaults.plugins.tooltip.borderWidth     = 1;
+  Chart.defaults.plugins.tooltip.padding         = 10;
 }
 
 const fmt = {
@@ -870,11 +877,38 @@ function paintForms(qs) {
   qs.forEach((q, i) => {
     if (q.type === 'choice' && q.bars && q.bars.length) {
       destroy('form_' + i);
+      // Total responses for this question — used for the percentage in the
+      // hover tooltip ("5+ years   93 (60%)"). q.responses comes from the
+      // server but we recompute from the bar data here so the tooltip is
+      // consistent even if Top-N truncated some answers.
+      const totalForChart = q.bars.reduce((s, b) => s + (Number(b.count) || 0), 0);
       CHARTS['form_' + i] = new Chart(document.getElementById('form_' + i).getContext('2d'), {
         type: 'bar',
         data: { labels: q.bars.map(b => b.label),
-                datasets: [{ data: q.bars.map(b => b.count), backgroundColor: PAYLOAD.brand.accent, borderRadius: 6 }] },
-        options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: AXIS, y: AXIS } }
+                datasets: [{
+                  label: q.label,
+                  data: q.bars.map(b => b.count),
+                  backgroundColor: PAYLOAD.brand.accent,
+                  borderRadius: 6
+                }] },
+        options: {
+          indexAxis: 'y',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                // Title = the answer label (e.g. "5+ years"), shown by default
+                // because indexAxis is 'y'. Body = "<count> (<pct>%)".
+                label: (ctx) => {
+                  const v   = Number(ctx.parsed.x) || 0;
+                  const pct = totalForChart ? ((v / totalForChart) * 100).toFixed(1) : '0';
+                  return v.toLocaleString('en-US') + ' (' + pct + '%)';
+                }
+              }
+            }
+          },
+          scales: { x: AXIS, y: AXIS }
+        }
       });
     }
   });
