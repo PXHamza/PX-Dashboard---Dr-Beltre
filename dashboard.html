@@ -38,15 +38,16 @@
       background: linear-gradient(180deg, #0E1530, var(--bg)); gap: 16px; flex-wrap: wrap; }
     .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
 
-    /* Logo: forced 1:1 square. If a custom logo image is provided we put it
-       inside a square container with object-fit:contain so non-square images
-       don't get stretched. */
+    /* Logo container.
+       Default state ("PX" text fallback) is a pink 1:1 square.
+       When an image is set via applyBrand() the background goes transparent
+       and rounded corners are dropped so the artwork isn't clipped — see
+       applyBrand() in the script block. */
     .brand .logo {
-      width: 42px; height: 42px; flex: 0 0 42px;
-      border-radius: 10px; background: var(--accent); color: #fff;
+      width: 44px; height: 44px; flex: 0 0 44px;
+      background: var(--accent); color: #fff;
       display: grid; place-items: center;
-      font-weight: 800; font-size: 16px; letter-spacing: -0.02em;
-      overflow: hidden;
+      font-weight: 800; font-size: 16px;
     }
     .brand .logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .brand .title    { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
@@ -144,6 +145,11 @@
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
     th { color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: var(--card-2); }
+    /* Sortable headers — click to sort, click again to reverse. */
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--text); }
+    th.sortable.active { color: var(--green); }
+    th.sortable .arrow { display: inline-block; margin-left: 4px; opacity: 0.85; }
     tr:last-child td { border-bottom: none; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .pos { color: var(--green); }
@@ -183,7 +189,7 @@
   <div class="brand">
     <div class="logo" id="brandLogo">PX</div>
     <div>
-      <div class="title"    id="brandTitle">PX Lead Intelligence</div>
+      <div class="title"    id="brandTitle">PX Insights</div>
       <div class="subtitle" id="brandSubtitle">Funnel Quality &amp; Ad Performance</div>
     </div>
   </div>
@@ -498,8 +504,13 @@ function applyBrand(b) {
   const logo = document.getElementById('brandLogo');
   if (b.logoUrl) {
     logo.innerHTML = '<img src="' + escapeAttr(b.logoUrl) + '" alt="logo">';
-    // Drop the pink fill so a transparent / non-square logo isn't framed in pink.
-    logo.style.background = 'transparent';
+    // The fallback "PX" placeholder uses a pink box; a real logo image
+    // shouldn't be framed by it. Strip the background and any clipping
+    // so the artwork shows in full at its natural aspect.
+    logo.style.background  = 'transparent';
+    logo.style.borderRadius = '0';
+    logo.style.overflow    = 'visible';
+    logo.style.padding     = '0';
   }
   if (b.accent) document.documentElement.style.setProperty('--accent', b.accent);
 }
@@ -705,40 +716,96 @@ function drawVariantBar(rows) {
  *   ['Campaign', 'Ad Set', 'Ad']       → 3 hierarchy columns
  * Followed by the standard stat columns (Leads, Qualified, Qual %, …).
  *
- * Each row's `parts` array matches the labels 1:1. Earlier parts (parents)
- * are painted in muted text; the last part (the leaf name) is the row's
- * primary identifier in the dashboard text colour.
+ * Sortable: clicking a column header sorts by that column. Clicking the
+ * already-active header reverses direction. Default sort is Leads desc.
+ * Sort state is persisted per-table id in SORT_STATE so re-renders
+ * (filter Apply) preserve the user's choice.
  */
+const SORT_STATE = {};   // { elId: { key, dir, rows, columnLabels } }
+const STAT_COLS = [
+  { key: 'leads',      label: 'Leads' },
+  { key: 'qualified',  label: 'Qualified' },
+  { key: 'qualPct',    label: 'Qual %' },
+  { key: 'sales',      label: 'Sales' },
+  { key: 'closeRate',  label: 'Close Rate' },
+  { key: 'revenue',    label: 'Revenue' },
+  { key: 'revPerLead', label: 'Rev / Lead' }
+];
+
 function paintRollupTable(elId, rows, columnLabels) {
   if (!rows || !rows.length) {
     document.getElementById(elId).innerHTML = '<div class="empty">No data for the current filters.</div>';
+    delete SORT_STATE[elId];
     return;
   }
-  const html = '<div class="table-scroll"><table><thead><tr>' +
-    columnLabels.map(l => '<th>' + escapeHtml(l) + '</th>').join('') +
-    '<th class="num">Leads</th>' +
-    '<th class="num">Qualified</th>' +
-    '<th class="num">Qual %</th>' +
-    '<th class="num">Sales</th>' +
-    '<th class="num">Close Rate</th>' +
-    '<th class="num">Revenue</th>' +
-    '<th class="num">Rev / Lead</th>' +
-  '</tr></thead><tbody>' +
-  rows.map(r => '<tr>' +
+  // Initialise (or reuse) sort state for this table id.
+  if (!SORT_STATE[elId]) SORT_STATE[elId] = { key: 'leads', dir: 'desc' };
+  SORT_STATE[elId].rows = rows;
+  SORT_STATE[elId].columnLabels = columnLabels;
+  renderRollupTable(elId);
+}
+
+function renderRollupTable(elId) {
+  const st = SORT_STATE[elId];
+  const sorted = sortRollupRows(st.rows, st.key, st.dir);
+
+  // sortKey for hierarchy columns is 'parts.<index>' — sortRollupRows handles that.
+  const hierCols = st.columnLabels.map((l, i) => ({ key: 'parts.' + i, label: l, num: false }));
+  const allCols  = hierCols.concat(STAT_COLS.map(c => Object.assign({ num: true }, c)));
+
+  const headerHtml = allCols.map(c => {
+    const active   = (st.key === c.key);
+    const arrow    = active ? '<span class="arrow">' + (st.dir === 'desc' ? '▼' : '▲') + '</span>' : '';
+    const cls      = 'sortable' + (c.num ? ' num' : '') + (active ? ' active' : '');
+    return '<th class="' + cls + '" data-sort-key="' + escapeAttr(c.key) + '">' +
+             escapeHtml(c.label) + arrow + '</th>';
+  }).join('');
+
+  const rowsHtml = sorted.map(r => '<tr>' +
     r.parts.map((p, i) => {
       const isLeaf = i === r.parts.length - 1;
-      const style = isLeaf ? '' : ' style="color:var(--muted)"';
+      const style  = isLeaf ? '' : ' style="color:var(--muted)"';
       return '<td' + style + '>' + escapeHtml(p) + '</td>';
     }).join('') +
-    '<td class="num">' + fmt.int(r.leads) + '</td>' +
-    '<td class="num">' + fmt.int(r.qualified) + '</td>' +
-    '<td class="num">' + fmt.pct(r.qualPct) + '</td>' +
-    '<td class="num">' + fmt.int(r.sales) + '</td>' +
-    '<td class="num">' + fmt.pct(r.closeRate) + '</td>' +
-    '<td class="num">' + fmt.money(r.revenue) + '</td>' +
-    '<td class="num">' + fmt.money2(r.revPerLead) + '</td>' +
-  '</tr>').join('') + '</tbody></table></div>';
-  document.getElementById(elId).innerHTML = html;
+    '<td class="num">' + fmt.int(r.leads)        + '</td>' +
+    '<td class="num">' + fmt.int(r.qualified)    + '</td>' +
+    '<td class="num">' + fmt.pct(r.qualPct)      + '</td>' +
+    '<td class="num">' + fmt.int(r.sales)        + '</td>' +
+    '<td class="num">' + fmt.pct(r.closeRate)    + '</td>' +
+    '<td class="num">' + fmt.money(r.revenue)    + '</td>' +
+    '<td class="num">' + fmt.money2(r.revPerLead)+ '</td>' +
+  '</tr>').join('');
+
+  document.getElementById(elId).innerHTML =
+    '<div class="table-scroll"><table><thead><tr>' + headerHtml +
+    '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+
+  // Wire header clicks. Same column → reverse direction; new column → desc.
+  document.querySelectorAll('#' + elId + ' th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sortKey;
+      if (st.key === key) st.dir = (st.dir === 'desc' ? 'asc' : 'desc');
+      else { st.key = key; st.dir = 'desc'; }
+      renderRollupTable(elId);
+    });
+  });
+}
+
+/** Sort a copy of `rows` by either a stat key (numeric) or a parts.<i> key
+ *  (string compare). Numeric sort treats null/NaN as 0. */
+function sortRollupRows(rows, key, dir) {
+  const partIdx = (key.indexOf('parts.') === 0) ? Number(key.slice(6)) : -1;
+  const factor  = (dir === 'desc') ? -1 : 1;
+  return rows.slice().sort((a, b) => {
+    if (partIdx >= 0) {
+      const sa = (a.parts[partIdx] || '').toString().toLowerCase();
+      const sb = (b.parts[partIdx] || '').toString().toLowerCase();
+      return factor * sa.localeCompare(sb);
+    }
+    const va = Number(a[key]) || 0;
+    const vb = Number(b[key]) || 0;
+    return factor * (va - vb);
+  });
 }
 
 // ----- Errors tab ----------------------------------------------------------

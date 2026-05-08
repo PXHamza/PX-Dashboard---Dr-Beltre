@@ -66,9 +66,9 @@ const CONFIG = {
   // 3) Brand — appears in the dialog header and as the chart accent.
   // ---------------------------------------------------------------------------
   BRAND: {
-    title:    'PX Lead Intelligence',
+    title:    'PX Insights',
     subtitle: 'Funnel Quality & Ad Performance',
-    logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/66191ad3a98fadffaabc0c4c.png',
+    logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
     linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
     accent:   '#FF2BD6',                             // Hot pink (PX brand)
