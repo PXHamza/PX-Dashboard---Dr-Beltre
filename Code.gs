@@ -90,10 +90,13 @@ function getDashboardPayload(filters) {
     qualityBreakdown:    qualityBreakdown(cur),
     qualityByCampaign:   qualityByCampaign(cur),
 
-    campaignTable:       rollup(cur, function (r) { return r.campaign    || '—'; }),
-    adSetTable:          rollup(cur, function (r) { return r.adSet       || '—'; }, function (r) { return r.campaign || '—'; }),
-    adTable:             rollup(cur, function (r) { return r.ad          || '—'; }, function (r) { return (r.campaign || '—') + ' / ' + (r.adSet || '—'); }),
-    pageVariantTable:    rollup(cur, function (r) { return r.pageVariant || '(none)'; }),
+    // Each rollup returns rows where r.parts is the hierarchy [parents..., name].
+    // The popup's table renderer paints one cell per part — parents in muted
+    // colour, the leaf "name" highlighted.
+    campaignTable:       rollupComposite(cur, ['campaign']),
+    adSetTable:          rollupComposite(cur, ['campaign', 'adSet']),
+    adTable:             rollupComposite(cur, ['campaign', 'adSet', 'ad']),
+    pageVariantTable:    rollupComposite(cur, ['pageVariant']),
 
     errors:              computeErrors(cur),
     formQuestions:       formInsights(cur),
@@ -442,20 +445,23 @@ function qualityByCampaign(rows) {
 }
 
 /**
- * Generic rollup. `keyFn` produces the row key; optional `parentFn` adds a
- * parent-context column (used for Ad Set table to show its campaign, and
- * for Ad table to show campaign / ad-set).
+ * Hierarchical rollup. `fields` is the path from outermost parent → leaf name.
+ *
+ *   ['campaign']                       → campaign-level table
+ *   ['campaign', 'adSet']              → ad-set table with campaign as parent
+ *   ['campaign', 'adSet', 'ad']        → ad table with campaign + ad-set parents
+ *   ['pageVariant']                    → page-variant table
+ *
+ * The rolled-up key is the joined path so two ad sets with the same name in
+ * different campaigns are kept separate. Each output row has `parts` =
+ * the path values, ready for the table renderer to paint one column per part.
  */
-function rollup(rows, keyFn, parentFn) {
+function rollupComposite(rows, fields) {
   const out = {};
   rows.forEach(function (r) {
-    const k = keyFn(r);
-    if (!out[k]) {
-      out[k] = {
-        key: k, parent: parentFn ? parentFn(r) : '',
-        leads: 0, qualified: 0, sales: 0, revenue: 0
-      };
-    }
+    const parts = fields.map(function (f) { return r[f] || '—'; });
+    const k = parts.join('||');
+    if (!out[k]) out[k] = { parts: parts, leads: 0, qualified: 0, sales: 0, revenue: 0 };
     out[k].leads++;
     if (r.qualified)   out[k].qualified++;
     if (r.revenue > 0) out[k].sales++;
@@ -464,10 +470,11 @@ function rollup(rows, keyFn, parentFn) {
   return Object.keys(out).map(function (k) {
     const o = out[k];
     return {
-      key: o.key, parent: o.parent,
-      leads: o.leads, qualified: o.qualified, qualPct: safeDiv(o.qualified, o.leads),
-      sales: o.sales, closeRate: safeDiv(o.sales, o.leads),
-      revenue: o.revenue, revPerLead: safeDiv(o.revenue, o.leads)
+      parts:      o.parts,
+      leads:      o.leads,
+      qualified:  o.qualified,  qualPct:    safeDiv(o.qualified, o.leads),
+      sales:      o.sales,      closeRate:  safeDiv(o.sales, o.leads),
+      revenue:    o.revenue,    revPerLead: safeDiv(o.revenue, o.leads)
     };
   }).sort(function (a, b) { return b.revenue - a.revenue || b.leads - a.leads; });
 }
@@ -479,25 +486,31 @@ function rollup(rows, keyFn, parentFn) {
  */
 function computeErrors(rows) {
   const total = rows.length;
-  const missing = function (acc) { return rows.filter(function (r) { return !acc(r); }).length; };
+  const present = function (acc) { return rows.filter(function (r) { return !!acc(r); }).length; };
 
-  // Facebook subset for fbclid coverage.
+  const haveCampaign = present(function (r) { return r.campaign; });
+  const haveAdSet    = present(function (r) { return r.adSet;    });
+  const haveAd       = present(function (r) { return r.ad;       });
+
+  // Facebook subset for fbclid coverage. Treat unknown-source rows as FB too
+  // — most clients only run on Facebook so the unlabelled rows are usually FB.
   const fb     = rows.filter(function (r) { return /facebook|fb|meta/i.test(r.source || '') || !r.source; });
   const withId = fb.filter(function (r) { return r.fbclid; }).length;
 
   return {
-    total:           total,
-    missingSource:   missing(function (r) { return r.source; }),
-    missingCampaign: missing(function (r) { return r.campaign; }),
-    missingAdSet:    missing(function (r) { return r.adSet; }),
-    missingAd:       missing(function (r) { return r.ad; }),
-    missingVariant:  missing(function (r) { return r.pageVariant; }),
-    fbLeads:         fb.length,
-    withFbclid:      withId,
-    fbclidCoverage:  safeDiv(withId, fb.length),
+    total:             total,
+    haveCampaign:      haveCampaign,
+    haveAdSet:         haveAdSet,
+    haveAd:            haveAd,
+    campaignCoverage:  safeDiv(haveCampaign, total),
+    adSetCoverage:     safeDiv(haveAdSet,    total),
+    adCoverage:        safeDiv(haveAd,       total),
+    fbLeads:           fb.length,
+    withFbclid:        withId,
+    fbclidCoverage:    safeDiv(withId, fb.length),
 
     // Sample rows for each missing dimension — the popup shows them in a
-    // table so the user can jump to the row in question.
+    // table so the user can jump to the actual row in the sheet.
     samples: {
       noCampaign: rows.filter(function (r) { return !r.campaign; }).slice(0, 25)
                        .map(function (r) { return slimRow(r, 'No campaign tagged'); }),

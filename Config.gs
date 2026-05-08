@@ -68,7 +68,7 @@ const CONFIG = {
   BRAND: {
     title:    'PX Lead Intelligence',
     subtitle: 'Funnel Quality & Ad Performance',
-    logoUrl:  '',                                    // Optional: paste a public PNG/JPG URL
+    logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/66191ad3a98fadffaabc0c4c.png',
     linkUrl:  'https://persuasionexperience.com',
     linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
     accent:   '#FF2BD6',                             // Hot pink (PX brand)

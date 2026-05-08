@@ -53,13 +53,26 @@
     .brand .subtitle { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
 
     .filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .filters label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-    .filters input[type="date"], .filters select {
+    .filters label, .filter-row-2 label {
+      color: var(--muted); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    /* All select / date inputs across the dashboard share the same look. */
+    .filters input[type="date"], .filters select,
+    .filter-row-2 input[type="date"], .filter-row-2 select {
       background: var(--card); color: var(--text);
       border: 1px solid var(--border); border-radius: 8px;
-      padding: 7px 10px; font-family: inherit; font-size: 13px; outline: none;
+      padding: 7px 28px 7px 10px;
+      font-family: inherit; font-size: 13px; outline: none;
+      min-width: 140px; max-width: 220px;
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      /* Custom dropdown chevron (matches the muted text colour). */
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238993A8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      background-repeat: no-repeat; background-position: right 10px center;
     }
-    .filters input[type="date"]:focus, .filters select:focus { border-color: var(--green); }
+    .filters input[type="date"]:focus, .filters select:focus,
+    .filter-row-2 input[type="date"]:focus, .filter-row-2 select:focus { border-color: var(--green); }
+    .filters select:hover, .filter-row-2 select:hover { border-color: #2F3D5C; }
     .btn { border: 1px solid var(--border); background: var(--card); color: var(--text);
       padding: 7px 14px; border-radius: 8px; font-weight: 600; font-size: 13px;
       cursor: pointer; transition: all 120ms; }
@@ -264,7 +277,7 @@
   <!-- ============================================================ Ads -->
   <div class="pane" id="pane-ads">
     <div class="panel"><h3>Ad Performance</h3>
-      <div class="sub">Sorted by revenue. Ad name comes from column K.</div>
+      <div class="sub">Sorted by revenue.</div>
       <div id="adTable"></div>
     </div>
   </div>
@@ -443,11 +456,12 @@ function render(p) {
   // KPI strip with delta arrows.
   paintKpiStrip(p.kpis, p.priorKpis, p.deltas, p.range);
 
-  // Tables — cheap to paint up front.
-  paintRollupTable('campaignTable', p.campaignTable, false);
-  paintRollupTable('adSetTable',    p.adSetTable,    'Campaign');
-  paintRollupTable('adTable',       p.adTable,       'Campaign / Ad Set');
-  paintRollupTable('variantTable',  p.pageVariantTable, false);
+  // Tables — cheap to paint up front. Column labels mirror the rollup hierarchy
+  // (parents on the left in muted colour, the leaf name highlighted on the right).
+  paintRollupTable('campaignTable', p.campaignTable,    ['Campaign']);
+  paintRollupTable('adSetTable',    p.adSetTable,       ['Campaign', 'Ad Set']);
+  paintRollupTable('adTable',       p.adTable,          ['Campaign', 'Ad Set', 'Ad']);
+  paintRollupTable('variantTable',  p.pageVariantTable, ['Variant']);
   paintErrors(p.errors);
   paintAlerts(p.alerts);
 
@@ -481,8 +495,11 @@ function applyBrand(b) {
   document.getElementById('brandTitle').textContent    = b.title;
   document.getElementById('brandSubtitle').textContent = b.subtitle;
   document.title = b.title;
+  const logo = document.getElementById('brandLogo');
   if (b.logoUrl) {
-    document.getElementById('brandLogo').innerHTML = '<img src="' + escapeAttr(b.logoUrl) + '" alt="logo">';
+    logo.innerHTML = '<img src="' + escapeAttr(b.logoUrl) + '" alt="logo">';
+    // Drop the pink fill so a transparent / non-square logo isn't framed in pink.
+    logo.style.background = 'transparent';
   }
   if (b.accent) document.documentElement.style.setProperty('--accent', b.accent);
 }
@@ -681,14 +698,24 @@ function drawVariantBar(rows) {
 }
 
 // ----- Tables --------------------------------------------------------------
-function paintRollupTable(elId, rows, parentLabel) {
+/**
+ * Render a rollup table whose hierarchy is described by `columnLabels`:
+ *   ['Campaign']                       → 1 hierarchy column
+ *   ['Campaign', 'Ad Set']             → 2 hierarchy columns
+ *   ['Campaign', 'Ad Set', 'Ad']       → 3 hierarchy columns
+ * Followed by the standard stat columns (Leads, Qualified, Qual %, …).
+ *
+ * Each row's `parts` array matches the labels 1:1. Earlier parts (parents)
+ * are painted in muted text; the last part (the leaf name) is the row's
+ * primary identifier in the dashboard text colour.
+ */
+function paintRollupTable(elId, rows, columnLabels) {
   if (!rows || !rows.length) {
     document.getElementById(elId).innerHTML = '<div class="empty">No data for the current filters.</div>';
     return;
   }
   const html = '<div class="table-scroll"><table><thead><tr>' +
-    '<th>Name</th>' +
-    (parentLabel ? '<th>' + escapeHtml(parentLabel) + '</th>' : '') +
+    columnLabels.map(l => '<th>' + escapeHtml(l) + '</th>').join('') +
     '<th class="num">Leads</th>' +
     '<th class="num">Qualified</th>' +
     '<th class="num">Qual %</th>' +
@@ -698,8 +725,11 @@ function paintRollupTable(elId, rows, parentLabel) {
     '<th class="num">Rev / Lead</th>' +
   '</tr></thead><tbody>' +
   rows.map(r => '<tr>' +
-    '<td>' + escapeHtml(r.key || '—') + '</td>' +
-    (parentLabel ? '<td style="color:var(--muted)">' + escapeHtml(r.parent || '—') + '</td>' : '') +
+    r.parts.map((p, i) => {
+      const isLeaf = i === r.parts.length - 1;
+      const style = isLeaf ? '' : ' style="color:var(--muted)"';
+      return '<td' + style + '>' + escapeHtml(p) + '</td>';
+    }).join('') +
     '<td class="num">' + fmt.int(r.leads) + '</td>' +
     '<td class="num">' + fmt.int(r.qualified) + '</td>' +
     '<td class="num">' + fmt.pct(r.qualPct) + '</td>' +
@@ -712,12 +742,17 @@ function paintRollupTable(elId, rows, parentLabel) {
 }
 
 // ----- Errors tab ----------------------------------------------------------
+// Coverage % = how many leads HAVE the field, out of all leads in view. A
+// drop in coverage usually means a tagging / UTM issue upstream.
 function paintErrors(e) {
   document.getElementById('errorKpis').innerHTML = [
-    { color: 'red',    label: 'Missing Campaign', value: fmt.int(e.missingCampaign), meta: 'Of ' + fmt.int(e.total) + ' leads' },
-    { color: 'amber',  label: 'Missing Ad Set',   value: fmt.int(e.missingAdSet),    meta: 'Of ' + fmt.int(e.total) + ' leads' },
-    { color: 'pink',   label: 'Missing Ad',       value: fmt.int(e.missingAd),       meta: 'Of ' + fmt.int(e.total) + ' leads' },
-    { color: 'blue',   label: 'fbclid Coverage',  value: fmt.pct(e.fbclidCoverage),
+    { color: 'green', label: 'Campaign Coverage', value: fmt.pct(e.campaignCoverage),
+      meta: fmt.int(e.haveCampaign) + ' of ' + fmt.int(e.total) + ' leads tagged' },
+    { color: 'blue',  label: 'Ad Set Coverage',   value: fmt.pct(e.adSetCoverage),
+      meta: fmt.int(e.haveAdSet) + ' of ' + fmt.int(e.total) + ' leads tagged' },
+    { color: 'pink',  label: 'Ad Coverage',       value: fmt.pct(e.adCoverage),
+      meta: fmt.int(e.haveAd) + ' of ' + fmt.int(e.total) + ' leads tagged' },
+    { color: 'amber', label: 'fbclid Coverage',   value: fmt.pct(e.fbclidCoverage),
       meta: fmt.int(e.withFbclid) + ' of ' + fmt.int(e.fbLeads) + ' FB leads' }
   ].map(c => `<div class="kpi k-${c.color}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="meta">${c.meta}</div></div>`).join('');
 
