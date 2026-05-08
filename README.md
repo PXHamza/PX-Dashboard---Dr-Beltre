@@ -4,13 +4,14 @@ A Google Apps Script project that adds a **PX Insights → 📊 Dashboard** menu
 any Google Sheet. Clicking it opens a modal popup with KPI cards, charts, and
 tables — read-only, no extra tabs created in the spreadsheet.
 
-## Three files, only one of them is client-specific
+## Files
 
 | File | Purpose | Edit per client? |
 |------|---------|------------------|
-| `Code.gs` | Server-side logic: menu, data loading, KPI math, dialog launcher. | Rarely |
+| `Code.gs` | Server-side logic: menu, data loading, KPI math, date presets. | Rarely |
 | `dashboard.html` | Popup UI: tabs, KPI cards, Chart.js charts. | Rarely |
-| `Config.gs` | Column mapping, form questions, brand. | **Always — this is the client config.** |
+| `Config.gs` | Column mapping, form questions, brand. | **Yes** |
+| `Qualification.gs` | The single rule that decides "is this lead qualified?". | **Yes** |
 | `appsscript.json` | Manifest. | No |
 
 ## Install

@@ -26,13 +26,20 @@ const CONFIG = {
   // ---------------------------------------------------------------------------
   // 2) Column mapping — field key → header text in row 1 of DATA_SHEET.
   //
-  //    Matching is case-insensitive and "contains-style", so 'Date' will
-  //    match a header named 'Created Date', 'Lead Date', 'Date Submitted', etc.
-  //    Set a value to '' (empty string) to disable that field for a client
-  //    that doesn't capture it (e.g. no Page Variant column → set to '').
+  //    Matching order (resolveColumn in Code.gs):
+  //      1. EXACT case-insensitive match — the value here matches a header
+  //         character-for-character. Use this when headers are clean.
+  //      2. Case-insensitive "contains" — used as a fallback when no exact
+  //         match exists (e.g. value 'Date' matches header 'Created Date').
+  //      3. Column letter — if the value looks like 'A', 'AA' etc and no
+  //         header matched, treated as a literal column letter.
   //
-  //    You can also pass an exact column letter ('A', 'F', 'AA') if your
-  //    data sheet has duplicate header text and you need to disambiguate.
+  //    IMPORTANT: ambiguous short values like 'Ad' will EXACT-match a header
+  //    called "Ad" (column K) before falling back to contains-match. If your
+  //    header is actually "Ad Name", set `ad: 'Ad Name'` so it doesn't
+  //    contains-match "Ad Set" by accident.
+  //
+  //    Set a value to '' (empty string) to disable that field entirely.
   // ---------------------------------------------------------------------------
   COLUMNS: {
     date:         'Date',                // A — when the lead came in
@@ -51,14 +58,9 @@ const CONFIG = {
   },
 
   // ---------------------------------------------------------------------------
-  // Lead-category vocabulary — raw values that map to each bucket.
-  // Matching is case-insensitive "contains".
+  // Lead-qualification rule lives in Qualification.gs (separate file so each
+  // client's "what counts as qualified?" logic is editable in one place).
   // ---------------------------------------------------------------------------
-  CATEGORIES: {
-    Qualified:   ['qualified', 'qual'],
-    Unqualified: ['unqualified', 'unqual'],
-    Junk:        ['junk', 'spam', 'fake']
-  },
 
   // ---------------------------------------------------------------------------
   // 3) Brand — appears in the dialog header and as the chart accent.
