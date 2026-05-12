@@ -962,8 +962,13 @@ function paintTopCreatives(all) {
     const rank = '#' + (i + 1);
     const url  = r.previewUrl || '';
     const safeUrl = url ? escapeAttr(url) : '';
+    // High-quality src first; if FB CDN refuses the upscaled request the
+    // onerror handler below swaps in the original (low-res) URL, and only
+    // shows the "blocked" placeholder if THAT also fails.
     const thumbInner = r.thumbnailUrl
-      ? '<img src="' + escapeAttr(r.thumbnailUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+      ? '<img src="' + escapeAttr(r.thumbnailUrl) + '"' +
+        ' data-fallback="' + escapeAttr(r.thumbnailUrlOriginal || '') + '"' +
+        ' alt="" loading="lazy" referrerpolicy="no-referrer">'
       : '<div class="thumb-fallback">No thumbnail</div>';
     const thumbWrap = url
       ? '<a class="thumb" href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">' + thumbInner + '</a>'
@@ -986,13 +991,20 @@ function paintTopCreatives(all) {
     </div>`;
   }).join('');
 
-  // Attach an error handler to each thumbnail. FB CDN sometimes refuses
-  // requests coming from googleusercontent referrers — when that happens
-  // the browser would otherwise show a broken-image icon. We swap in a
-  // clean "Thumbnail blocked" placeholder instead.
+  // Two-step thumbnail fallback. Each <img> starts with the upscaled URL
+  // (FB CDN, p640x640). If that errors (CDN refuses the upscaled request)
+  // we swap to the original URL stored in data-fallback. If THAT also
+  // fails we replace the whole image with a "blocked" placeholder.
   root.querySelectorAll('.thumb img').forEach(img => {
+    let triedFallback = false;
     img.addEventListener('error', () => {
-      img.parentNode.innerHTML = '<div class="thumb-fallback">Thumbnail blocked by source</div>';
+      const fallback = img.dataset.fallback;
+      if (!triedFallback && fallback && fallback !== img.src) {
+        triedFallback = true;
+        img.src = fallback;
+      } else {
+        img.parentNode.innerHTML = '<div class="thumb-fallback">Thumbnail blocked by source</div>';
+      }
     });
   });
 }
