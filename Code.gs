@@ -168,16 +168,18 @@ function loadAllRows() {
     // Ad-preview link (raw URL) and ad thumbnail (URL extracted from an
     // =IMAGE("...") formula if that's what the cell holds). If the cell is
     // plain text containing an http URL we fall back to that.
+    // We never modify either URL — they're used exactly as they appear in
+    // the sheet.
     const adPreviewUrl = colIdx.adPreviewUrl ? str(r[colIdx.adPreviewUrl - 1]) : '';
     let   adThumbnailUrl = '';
     if (colIdx.adThumbnailUrl) {
       const formula = formulas ? formulas[i][colIdx.adThumbnailUrl - 1] : '';
       const m = formula && formula.match(/=IMAGE\(\s*"([^"]+)"/i);
       if (m) {
-        adThumbnailUrl = upscaleFbThumbnail(m[1]);
+        adThumbnailUrl = m[1];
       } else {
         const cell = str(r[colIdx.adThumbnailUrl - 1]);
-        if (/^https?:\/\//i.test(cell)) adThumbnailUrl = upscaleFbThumbnail(cell);
+        if (/^https?:\/\//i.test(cell)) adThumbnailUrl = cell;
       }
     }
 
@@ -222,27 +224,34 @@ function loadAllRows() {
 /**
  * Resolve a Config.gs column spec to a 1-based column index.
  *
- *   1) Exact case-insensitive header match (preferred — so `'Ad'` finds the
- *      "Ad" column, not "Ad Set").
- *   2) Case-insensitive contains match.
- *   3) Treat the spec as a column letter ('A', 'B', 'AA').
+ *   1) Pure column letter ('A', 'BC', 'AA' — all uppercase) → that column.
+ *      Checked FIRST so a spec like 'T' doesn't accidentally contains-match
+ *      a header like "Date" (which contains the letter 't').
+ *   2) EXACT case-insensitive header match (preferred for header text).
+ *   3) Case-insensitive contains match.
+ *   4) Letter form fallback for mixed-case inputs ('a', 'aa').
  *
  * Returns 0 if nothing matched.
  */
 function resolveColumn(spec, headers) {
   const v = (spec == null ? '' : spec.toString()).trim();
   if (!v) return 0;
-  const lower = v.toLowerCase();
 
-  // 1) Exact match.
+  // 1) Pure column letter (1-3 ALL-CAPS letters) — used by Config entries
+  //    like adPreviewUrl: 'T'. We resolve this first so we don't fall into
+  //    the contains-match below and pick up the wrong column.
+  if (/^[A-Z]{1,3}$/.test(v)) return colNumber(v);
+
+  const lower = v.toLowerCase();
+  // 2) Exact header match.
   for (let i = 0; i < headers.length; i++) {
     if (headers[i].toLowerCase().trim() === lower) return i + 1;
   }
-  // 2) Contains.
+  // 3) Contains match.
   for (let i = 0; i < headers.length; i++) {
     if (headers[i].toLowerCase().indexOf(lower) !== -1) return i + 1;
   }
-  // 3) Column letter form ('A', 'AA', etc.) — only kicks in if no header matched.
+  // 4) Mixed-case letter fallback ('a', 'aa') — only used if no header matched.
   if (/^[A-Za-z]{1,3}$/.test(v)) return colNumber(v);
   return 0;
 }
@@ -674,19 +683,6 @@ function topCreatives(rows) {
   .filter(function (c) { return c.previewUrl || c.thumbnailUrl; })
   .sort(function (a, b) { return b.leads - a.leads || b.revenue - a.revenue; })
   .slice(0, 30);
-}
-
-/**
- * Facebook CDN thumbnails come back as 64x64 q75 jpegs ("p64x64_q75" in the
- * URL). Bumping those values often makes the CDN serve a larger version of
- * the same image — much nicer on a high-DPI dashboard. If the URL doesn't
- * match the FB pattern, we leave it alone.
- */
-function upscaleFbThumbnail(url) {
-  if (!url) return url;
-  return url
-    .replace(/p\d+x\d+/, 'p480x480')
-    .replace(/_q\d+/,   '_q90');
 }
 
 // =============================================================================

@@ -985,6 +985,16 @@ function paintTopCreatives(all) {
       </div>
     </div>`;
   }).join('');
+
+  // Attach an error handler to each thumbnail. FB CDN sometimes refuses
+  // requests coming from googleusercontent referrers — when that happens
+  // the browser would otherwise show a broken-image icon. We swap in a
+  // clean "Thumbnail blocked" placeholder instead.
+  root.querySelectorAll('.thumb img').forEach(img => {
+    img.addEventListener('error', () => {
+      img.parentNode.innerHTML = '<div class="thumb-fallback">Thumbnail blocked by source</div>';
+    });
+  });
 }
 
 // ----- Form Insights -------------------------------------------------------
