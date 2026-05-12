@@ -100,7 +100,8 @@ function getDashboardPayload(filters) {
 
     errors:              computeErrors(cur),
     formQuestions:       formInsights(cur),
-    alerts:              computeAlerts(cur)
+    alerts:              computeAlerts(cur),
+    topCreatives:        topCreatives(cur)
   };
 }
 
@@ -135,6 +136,13 @@ function loadAllRows() {
   });
 
   const values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  // Read formulas too — needed so we can extract the URL out of an =IMAGE("url")
+  // cell for the thumbnail column. getValues() of that cell would just return
+  // an opaque image placeholder, not the URL we want to render in the popup.
+  const formulas = colIdx.adThumbnailUrl
+    ? sheet.getRange(2, 1, lastRow - 1, lastCol).getFormulas()
+    : null;
+
   const rows = [];
   let dateMin = null, dateMax = null;
 
@@ -157,6 +165,22 @@ function loadAllRows() {
     const variant = colIdx.pageVariant  ? str(r[colIdx.pageVariant - 1])          : '';
     const fbclid  = colIdx.fbclid       ? str(r[colIdx.fbclid - 1])               : '';
 
+    // Ad-preview link (raw URL) and ad thumbnail (URL extracted from an
+    // =IMAGE("...") formula if that's what the cell holds). If the cell is
+    // plain text containing an http URL we fall back to that.
+    const adPreviewUrl = colIdx.adPreviewUrl ? str(r[colIdx.adPreviewUrl - 1]) : '';
+    let   adThumbnailUrl = '';
+    if (colIdx.adThumbnailUrl) {
+      const formula = formulas ? formulas[i][colIdx.adThumbnailUrl - 1] : '';
+      const m = formula && formula.match(/=IMAGE\(\s*"([^"]+)"/i);
+      if (m) {
+        adThumbnailUrl = upscaleFbThumbnail(m[1]);
+      } else {
+        const cell = str(r[colIdx.adThumbnailUrl - 1]);
+        if (/^https?:\/\//i.test(cell)) adThumbnailUrl = upscaleFbThumbnail(cell);
+      }
+    }
+
     const formAnswers = {};
     formColIdx.forEach(function (fc) {
       formAnswers[fc.q.label] = fc.col ? str(r[fc.col - 1]) : '';
@@ -177,6 +201,8 @@ function loadAllRows() {
       notes:       notes, revenue: revenue,
       source:      source, campaign: camp, adSet: adSet, ad: ad,
       pageVariant: variant, fbclid: fbclid,
+      adPreviewUrl: adPreviewUrl,
+      adThumbnailUrl: adThumbnailUrl,
       formAnswers: formAnswers
     });
   }
@@ -600,6 +626,67 @@ function stopWords() {
   ];
   const o = {}; arr.forEach(function (w) { o[w] = 1; });
   return o;
+}
+
+// =============================================================================
+// TOP CREATIVES
+// =============================================================================
+
+/**
+ * Group rows by ad name, aggregate stats, attach the first non-empty preview
+ * URL and thumbnail URL seen for that ad. Returns every ad that has at least
+ * a preview URL OR a thumbnail — the client sorts and slices top N by the
+ * metric the user has chosen.
+ *
+ * Limited to 30 ads to keep the payload small; that's well past "top 3".
+ */
+function topCreatives(rows) {
+  const out = {};
+  rows.forEach(function (r) {
+    if (!r.ad) return;
+    const k = r.ad;
+    if (!out[k]) {
+      out[k] = {
+        ad: r.ad, campaign: r.campaign || '—', adSet: r.adSet || '—',
+        leads: 0, qualified: 0, sales: 0, revenue: 0,
+        previewUrl: '', thumbnailUrl: ''
+      };
+    }
+    out[k].leads++;
+    if (r.qualified)   out[k].qualified++;
+    if (r.revenue > 0) out[k].sales++;
+    out[k].revenue += r.revenue || 0;
+    if (!out[k].previewUrl   && r.adPreviewUrl)   out[k].previewUrl   = r.adPreviewUrl;
+    if (!out[k].thumbnailUrl && r.adThumbnailUrl) out[k].thumbnailUrl = r.adThumbnailUrl;
+  });
+  return Object.keys(out).map(function (k) {
+    const o = out[k];
+    return {
+      ad:           o.ad,        campaign: o.campaign,  adSet: o.adSet,
+      leads:        o.leads,
+      qualified:    o.qualified, qualPct:    safeDiv(o.qualified, o.leads),
+      sales:        o.sales,     closeRate:  safeDiv(o.sales,     o.leads),
+      revenue:      o.revenue,   revPerLead: safeDiv(o.revenue,   o.leads),
+      previewUrl:   o.previewUrl,
+      thumbnailUrl: o.thumbnailUrl
+    };
+  })
+  .filter(function (c) { return c.previewUrl || c.thumbnailUrl; })
+  .sort(function (a, b) { return b.leads - a.leads || b.revenue - a.revenue; })
+  .slice(0, 30);
+}
+
+/**
+ * Facebook CDN thumbnails come back as 64x64 q75 jpegs ("p64x64_q75" in the
+ * URL). Bumping those values often makes the CDN serve a larger version of
+ * the same image — much nicer on a high-DPI dashboard. If the URL doesn't
+ * match the FB pattern, we leave it alone.
+ */
+function upscaleFbThumbnail(url) {
+  if (!url) return url;
+  return url
+    .replace(/p\d+x\d+/, 'p480x480')
+    .replace(/_q\d+/,   '_q90');
 }
 
 // =============================================================================

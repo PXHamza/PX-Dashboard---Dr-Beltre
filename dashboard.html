@@ -180,6 +180,49 @@
     .pane.active { display: block; }
     .empty { color: var(--muted); padding: 28px; text-align: center; }
     .section-title { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 22px 0 8px; }
+
+    /* ---------- Top Creatives cards ---------- */
+    .creative-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px; position: relative; overflow: hidden;
+    }
+    .creative-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent); box-shadow: 0 0 16px var(--accent);
+    }
+    .creative-card .rank {
+      color: var(--accent); font-size: 11px; font-weight: 800;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .creative-card .thumb {
+      display: block; aspect-ratio: 1 / 1; width: 100%;
+      border-radius: 12px; overflow: hidden;
+      background: var(--card-2);
+      margin: 10px 0 12px;
+      border: 1px solid var(--border);
+      transition: transform 150ms, border-color 150ms;
+    }
+    .creative-card .thumb:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .creative-card .thumb img   { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .creative-card .thumb-fallback {
+      width: 100%; height: 100%; display: grid; place-items: center;
+      color: var(--muted); font-size: 12px;
+    }
+    .creative-card .creative-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--accent); color: #0A0F1F;
+      padding: 8px 12px; border-radius: 8px;
+      font-weight: 700; font-size: 13px;
+      text-decoration: none;
+    }
+    .creative-card .creative-link:hover { background: #ff5fe0; }
+    .creative-card .ad-name { font-weight: 700; margin-top: 10px; font-size: 14px; }
+    .creative-card .ad-meta { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+    .creative-card .stats   { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .creative-card .stat    { background: var(--card-2); border-radius: 8px; padding: 8px 10px; }
+    .creative-card .stat .label { display: block; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .creative-card .stat .value { display: block; font-weight: 700; font-size: 14px; margin-top: 2px; }
+    .creative-card .stat .value small { color: var(--muted); font-weight: 500; }
   </style>
 </head>
 <body>
@@ -233,6 +276,7 @@
   <div class="tab"        data-tab="campaigns">🎯 Campaigns</div>
   <div class="tab"        data-tab="adsets">📦 Ad Sets</div>
   <div class="tab"        data-tab="ads">🖼️ Ads</div>
+  <div class="tab"        data-tab="creatives">🏆 Top Creatives</div>
   <div class="tab"        data-tab="variants">🧪 Page Variants</div>
   <div class="tab"        data-tab="errors">⚠️ Errors</div>
   <div class="tab"        data-tab="forms">📝 Form Insights</div>
@@ -285,6 +329,36 @@
     <div class="panel"><h3>Ad Performance</h3>
       <div class="sub">Sorted by revenue.</div>
       <div id="adTable"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ Top Creatives -->
+  <div class="pane" id="pane-creatives">
+    <div class="panel">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h3 style="margin:0;">Top Creatives</h3>
+          <div class="sub" style="margin:4px 0 0;">Best-performing ads with preview thumbnails. Click any thumbnail or the pink button to open the live ad preview.</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="color:var(--muted); font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;">Rank by</label>
+          <select id="creativesMetric" style="
+            background:var(--card); color:var(--text);
+            border:1px solid var(--border); border-radius:8px;
+            padding:7px 28px 7px 10px; font-family:inherit; font-size:13px;
+            min-width:140px; outline:none;
+            appearance:none; -webkit-appearance:none;
+            background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238993A8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>&quot;);
+            background-repeat:no-repeat; background-position:right 10px center;">
+            <option value="leads"      selected>Leads</option>
+            <option value="qualified">Qualified</option>
+            <option value="qualPct">Qualification Rate</option>
+            <option value="revenue">Revenue</option>
+            <option value="closeRate">Close Rate</option>
+          </select>
+        </div>
+      </div>
+      <div id="topCreativesGrid" class="grid grid-3" style="margin-top:18px;"></div>
     </div>
   </div>
 
@@ -497,11 +571,20 @@ function renderTab(name) {
     case 'variants':
       drawVariantBar(p.pageVariantTable);
       break;
+    case 'creatives':
+      paintTopCreatives(p.topCreatives);
+      break;
     case 'forms':
       paintForms(p.formQuestions);
       break;
   }
 }
+
+// Re-render when the "Rank by" metric changes. We already have the data
+// client-side from the last payload, so no server round-trip needed.
+document.getElementById('creativesMetric').addEventListener('change', () => {
+  if (PAYLOAD) paintTopCreatives(PAYLOAD.topCreatives);
+});
 
 // ----- Brand ---------------------------------------------------------------
 function applyBrand(b) {
@@ -851,6 +934,57 @@ function paintMissingTable(elId, rows) {
       '<td style="color:var(--muted)">' + escapeHtml(r.email) + '</td>' +
       '<td style="color:var(--amber)">' + escapeHtml(r.reason) + '</td>' +
     '</tr>').join('') + '</tbody></table></div>';
+}
+
+// ----- Top Creatives -------------------------------------------------------
+// Sort the ads the server shipped, slice top 3, render as thumbnail cards.
+// Clicking the thumbnail or the pink "#N creative" button opens the live ad
+// preview URL in a new tab. The raw preview URL is never shown as text —
+// per the brief, it's always wrapped in friendly labels.
+const METRIC_LABELS = {
+  leads:     'leads',
+  qualified: 'qualified',
+  qualPct:   'qual rate',
+  revenue:   'revenue',
+  closeRate: 'close rate'
+};
+function paintTopCreatives(all) {
+  const root = document.getElementById('topCreativesGrid');
+  if (!all || !all.length) {
+    root.innerHTML = '<div class="empty">No creatives to show. Make sure column T has the ad preview link and column U has the thumbnail (an =IMAGE() formula).</div>';
+    return;
+  }
+  const metric = document.getElementById('creativesMetric').value || 'leads';
+  const sorted = all.slice().sort((a, b) => (Number(b[metric]) || 0) - (Number(a[metric]) || 0));
+  const top    = sorted.slice(0, 3);
+
+  root.innerHTML = top.map((r, i) => {
+    const rank = '#' + (i + 1);
+    const url  = r.previewUrl || '';
+    const safeUrl = url ? escapeAttr(url) : '';
+    const thumbInner = r.thumbnailUrl
+      ? '<img src="' + escapeAttr(r.thumbnailUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+      : '<div class="thumb-fallback">No thumbnail</div>';
+    const thumbWrap = url
+      ? '<a class="thumb" href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">' + thumbInner + '</a>'
+      : '<div class="thumb">' + thumbInner + '</div>';
+    const linkHtml = url
+      ? '<a class="creative-link" href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">' + rank + ' creative ↗</a>'
+      : '<span class="creative-link" style="opacity:0.6;cursor:default;">' + rank + ' creative (no link)</span>';
+    return `<div class="creative-card">
+      <div class="rank">${rank} by ${METRIC_LABELS[metric]}</div>
+      ${thumbWrap}
+      ${linkHtml}
+      <div class="ad-name">${escapeHtml(r.ad)}</div>
+      <div class="ad-meta">${escapeHtml(r.campaign)}  •  ${escapeHtml(r.adSet)}</div>
+      <div class="stats">
+        <div class="stat"><span class="label">Leads</span><span class="value">${fmt.int(r.leads)}</span></div>
+        <div class="stat"><span class="label">Qualified</span><span class="value">${fmt.int(r.qualified)} <small>(${fmt.pct(r.qualPct)})</small></span></div>
+        <div class="stat"><span class="label">Sales</span><span class="value">${fmt.int(r.sales)} <small>(${fmt.pct(r.closeRate)})</small></span></div>
+        <div class="stat"><span class="label">Revenue</span><span class="value">${fmt.money(r.revenue)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ----- Form Insights -------------------------------------------------------
