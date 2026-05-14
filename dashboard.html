@@ -197,13 +197,15 @@
     .creative-card .thumb {
       display: block; aspect-ratio: 1 / 1; width: 100%;
       border-radius: 12px; overflow: hidden;
-      background: var(--card-2);
+      background: #000;
       margin: 10px 0 12px;
       border: 1px solid var(--border);
       transition: transform 150ms, border-color 150ms;
     }
     .creative-card .thumb:hover { transform: translateY(-2px); border-color: var(--accent); }
-    .creative-card .thumb img   { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* contain (not cover) so the whole ad creative is visible — FB creatives
+       are often portrait/4:5 and cover would crop the top and bottom off. */
+    .creative-card .thumb img   { width: 100%; height: 100%; object-fit: contain; display: block; }
     .creative-card .thumb-fallback {
       width: 100%; height: 100%; display: grid; place-items: center;
       color: var(--muted); font-size: 12px;
@@ -962,12 +964,11 @@ function paintTopCreatives(all) {
     const rank = '#' + (i + 1);
     const url  = r.previewUrl || '';
     const safeUrl = url ? escapeAttr(url) : '';
-    // High-quality src first; if FB CDN refuses the upscaled request the
-    // onerror handler below swaps in the original (low-res) URL, and only
-    // shows the "blocked" placeholder if THAT also fails.
+    // Column W is already a direct, full-resolution image URL — used as-is.
+    // If FB CDN refuses the request (rare, referrer-related) the onerror
+    // handler below swaps in a clean placeholder.
     const thumbInner = r.thumbnailUrl
       ? '<img src="' + escapeAttr(r.thumbnailUrl) + '"' +
-        ' data-fallback="' + escapeAttr(r.thumbnailUrlOriginal || '') + '"' +
         ' alt="" loading="lazy" referrerpolicy="no-referrer">'
       : '<div class="thumb-fallback">No thumbnail</div>';
     const thumbWrap = url
@@ -991,20 +992,12 @@ function paintTopCreatives(all) {
     </div>`;
   }).join('');
 
-  // Two-step thumbnail fallback. Each <img> starts with the upscaled URL
-  // (FB CDN, p640x640). If that errors (CDN refuses the upscaled request)
-  // we swap to the original URL stored in data-fallback. If THAT also
-  // fails we replace the whole image with a "blocked" placeholder.
+  // If FB CDN refuses a thumbnail request (occasionally happens with
+  // googleusercontent referrers) swap in a clean placeholder instead of
+  // letting the browser show a broken-image icon.
   root.querySelectorAll('.thumb img').forEach(img => {
-    let triedFallback = false;
     img.addEventListener('error', () => {
-      const fallback = img.dataset.fallback;
-      if (!triedFallback && fallback && fallback !== img.src) {
-        triedFallback = true;
-        img.src = fallback;
-      } else {
-        img.parentNode.innerHTML = '<div class="thumb-fallback">Thumbnail blocked by source</div>';
-      }
+      img.parentNode.innerHTML = '<div class="thumb-fallback">Thumbnail blocked by source</div>';
     });
   });
 }

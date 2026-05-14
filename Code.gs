@@ -165,27 +165,23 @@ function loadAllRows() {
     const variant = colIdx.pageVariant  ? str(r[colIdx.pageVariant - 1])          : '';
     const fbclid  = colIdx.fbclid       ? str(r[colIdx.fbclid - 1])               : '';
 
-    // Ad-preview link (raw URL) and ad thumbnail (URL extracted from an
-    // =IMAGE("...") formula if that's what the cell holds). If the cell is
-    // plain text containing an http URL we fall back to that.
+    // Ad-preview link (column V) and creative thumbnail (column W).
     //
-    // Thumbnails are stored TWICE: the upscaled URL (p640x640_q90) is used
-    // as the primary source for high-quality rendering; the original URL is
-    // shipped as `adThumbnailUrlOriginal` so the client can fall back to it
-    // if FB CDN refuses the upscaled request.
+    // Column W is a direct, full-resolution image URL ("Creative Preview
+    // Link"), so it's used exactly as-is — no upscaling needed. If a row
+    // instead holds an =IMAGE("...") formula (older sheet format) we
+    // extract the URL out of the formula as a fallback.
     const adPreviewUrl = colIdx.adPreviewUrl ? str(r[colIdx.adPreviewUrl - 1]) : '';
     let   adThumbnailUrl = '';
-    let   adThumbnailUrlOriginal = '';
     if (colIdx.adThumbnailUrl) {
-      const formula = formulas ? formulas[i][colIdx.adThumbnailUrl - 1] : '';
-      const m = formula && formula.match(/=IMAGE\(\s*"([^"]+)"/i);
-      if (m) {
-        adThumbnailUrlOriginal = m[1];
+      const cell = str(r[colIdx.adThumbnailUrl - 1]);
+      if (/^https?:\/\//i.test(cell)) {
+        adThumbnailUrl = cell;                                  // plain URL — the new W format
       } else {
-        const cell = str(r[colIdx.adThumbnailUrl - 1]);
-        if (/^https?:\/\//i.test(cell)) adThumbnailUrlOriginal = cell;
+        const formula = formulas ? formulas[i][colIdx.adThumbnailUrl - 1] : '';
+        const m = formula && formula.match(/=IMAGE\(\s*"([^"]+)"/i);
+        if (m) adThumbnailUrl = m[1];                           // =IMAGE("url") — older format
       }
-      adThumbnailUrl = adThumbnailUrlOriginal ? upscaleFbThumbnail(adThumbnailUrlOriginal) : '';
     }
 
     const formAnswers = {};
@@ -210,7 +206,6 @@ function loadAllRows() {
       pageVariant: variant, fbclid: fbclid,
       adPreviewUrl: adPreviewUrl,
       adThumbnailUrl: adThumbnailUrl,
-      adThumbnailUrlOriginal: adThumbnailUrlOriginal,
       formAnswers: formAnswers
     });
   }
@@ -664,7 +659,7 @@ function topCreatives(rows) {
       out[k] = {
         ad: r.ad, campaign: r.campaign || '—', adSet: r.adSet || '—',
         leads: 0, qualified: 0, sales: 0, revenue: 0,
-        previewUrl: '', thumbnailUrl: '', thumbnailUrlOriginal: ''
+        previewUrl: '', thumbnailUrl: ''
       };
     }
     out[k].leads++;
@@ -672,41 +667,23 @@ function topCreatives(rows) {
     if (r.revenue > 0) out[k].sales++;
     out[k].revenue += r.revenue || 0;
     if (!out[k].previewUrl   && r.adPreviewUrl)   out[k].previewUrl   = r.adPreviewUrl;
-    if (!out[k].thumbnailUrl && r.adThumbnailUrl) {
-      out[k].thumbnailUrl         = r.adThumbnailUrl;
-      out[k].thumbnailUrlOriginal = r.adThumbnailUrlOriginal;
-    }
+    if (!out[k].thumbnailUrl && r.adThumbnailUrl) out[k].thumbnailUrl = r.adThumbnailUrl;
   });
   return Object.keys(out).map(function (k) {
     const o = out[k];
     return {
-      ad:                    o.ad,        campaign: o.campaign,  adSet: o.adSet,
-      leads:                 o.leads,
-      qualified:             o.qualified, qualPct:    safeDiv(o.qualified, o.leads),
-      sales:                 o.sales,     closeRate:  safeDiv(o.sales,     o.leads),
-      revenue:               o.revenue,   revPerLead: safeDiv(o.revenue,   o.leads),
-      previewUrl:            o.previewUrl,
-      thumbnailUrl:          o.thumbnailUrl,
-      thumbnailUrlOriginal:  o.thumbnailUrlOriginal
+      ad:           o.ad,        campaign: o.campaign,  adSet: o.adSet,
+      leads:        o.leads,
+      qualified:    o.qualified, qualPct:    safeDiv(o.qualified, o.leads),
+      sales:        o.sales,     closeRate:  safeDiv(o.sales,     o.leads),
+      revenue:      o.revenue,   revPerLead: safeDiv(o.revenue,   o.leads),
+      previewUrl:   o.previewUrl,
+      thumbnailUrl: o.thumbnailUrl
     };
   })
   .filter(function (c) { return c.previewUrl || c.thumbnailUrl; })
   .sort(function (a, b) { return b.leads - a.leads || b.revenue - a.revenue; })
   .slice(0, 30);
-}
-
-/**
- * Bump Facebook CDN thumbnail size + quality. FB CDN URLs that come from
- * the ads-preview iframe ship at 64x64 q75 (look for the "p64x64_q75"
- * sub-string in stp=...). Replacing those with larger values usually makes
- * the CDN serve the same image at a much higher resolution; if FB refuses
- * the upscaled request the client falls back to the original URL.
- */
-function upscaleFbThumbnail(url) {
-  if (!url) return url;
-  return url
-    .replace(/p\d+x\d+/, 'p640x640')
-    .replace(/_q\d+/,   '_q90');
 }
 
 // =============================================================================

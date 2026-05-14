@@ -57,12 +57,12 @@ const CONFIG = {
     fbclid:       'Fbclid',              // M
 
     // ---- Creative-preview columns (used by the "Top Creatives" tab) ----
-    // Column T holds the Facebook ad-preview URL.
-    // Column U is an =IMAGE("...") formula whose URL we extract at runtime
-    // and display as a thumbnail in the popup. Both default to column
-    // letters so they work even if those columns don't have headers.
-    adPreviewUrl:   'T',                 // T — Ad Preview Link
-    adThumbnailUrl: 'U'                  // U — =IMAGE(thumbnail_url)
+    // Column V holds the Facebook ad-preview URL (the clickable link).
+    // Column W holds the Creative Preview Link — a direct, full-resolution
+    // image URL used as the thumbnail. Both default to column letters so
+    // they work whether or not those columns have header text.
+    adPreviewUrl:   'V',                 // V — Ad Preview Link
+    adThumbnailUrl: 'W'                  // W — Creative Preview Link (direct image URL)
   },
 
   // ---------------------------------------------------------------------------
