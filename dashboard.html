@@ -275,6 +275,7 @@
 <!-- ===== Tabs ===== -->
 <div class="tabs" id="tabs">
   <div class="tab active" data-tab="overview">📊 Overview</div>
+  <div class="tab"        data-tab="stages">📈 Funnel Stages</div>
   <div class="tab"        data-tab="campaigns">🎯 Campaigns</div>
   <div class="tab"        data-tab="adsets">📦 Ad Sets</div>
   <div class="tab"        data-tab="ads">🖼️ Ads</div>
@@ -307,6 +308,28 @@
       <h3>Quality Breakdown by Campaign</h3>
       <div class="sub">Top 10 campaigns. Each bar = 100% of that campaign's leads.</div>
       <div class="chart-wrap"><canvas id="chartByCampaign"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ Funnel Stages -->
+  <div class="pane" id="pane-stages">
+    <div class="grid grid-4" id="stagesSummary" style="margin-bottom:16px;"></div>
+    <div class="grid grid-2-1" style="margin-bottom:16px;">
+      <div class="panel">
+        <h3>Stage Distribution</h3>
+        <div class="sub">Leads at each stage, in CRM order. Bar length is count; hover for % of total.</div>
+        <div class="chart-wrap" id="stagesChartWrap"><canvas id="chartStages"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Pipeline Status</h3>
+        <div class="sub">Active vs Won vs Lost.</div>
+        <div class="chart-wrap donut"><canvas id="chartStagesPie"></canvas></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Stage Breakdown</h3>
+      <div class="sub">Counts, % of total, and stage-to-stage change. Note: terminal/branch stages (Cancelled, No-show, etc.) inflate adjacent retention numbers — interpret as directional, not exact.</div>
+      <div id="stagesTable"></div>
     </div>
   </div>
 
@@ -569,6 +592,9 @@ function renderTab(name) {
       drawDailyChart(p.daily);
       drawDonut(p.qualityBreakdown);
       drawByCampaign(p.qualityByCampaign);
+      break;
+    case 'stages':
+      paintStages(p.stages);
       break;
     case 'variants':
       drawVariantBar(p.pageVariantTable);
@@ -936,6 +962,114 @@ function paintMissingTable(elId, rows) {
       '<td style="color:var(--muted)">' + escapeHtml(r.email) + '</td>' +
       '<td style="color:var(--amber)">' + escapeHtml(r.reason) + '</td>' +
     '</tr>').join('') + '</tbody></table></div>';
+}
+
+// ----- Funnel Stages -------------------------------------------------------
+// Renders three things for the "Funnel Stages" tab:
+//   1) Summary KPI strip (Total, Active, Won, Win Rate)
+//   2) Horizontal bar chart in CRM order — the funnel shape emerges
+//      naturally as bars shrink down the pipeline
+//   3) Pipeline-status donut (Active / Won / Lost)
+//   4) Breakdown table with counts, %, and stage-to-stage change
+function paintStages(s) {
+  if (!s) return;
+
+  // 1) Summary cards.
+  document.getElementById('stagesSummary').innerHTML = [
+    { color: 'blue',  label: 'Total Leads',        value: fmt.int(s.total),
+      meta: s.unmatched ? fmt.int(s.unmatched) + ' unmatched (check stage labels)' : 'All categorised' },
+    { color: 'green', label: 'Active in Pipeline', value: fmt.int(s.summary.active),
+      meta: 'Not in a terminal stage' },
+    { color: 'amber', label: 'Wins',               value: fmt.int(s.summary.won),
+      meta: 'Stages flagged won' },
+    { color: 'pink',  label: 'Win Rate',           value: fmt.pct(s.summary.winRate),
+      meta: fmt.int(s.summary.won) + ' of ' + fmt.int(s.total) }
+  ].map(c => `<div class="kpi k-${c.color}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="meta">${c.meta}</div></div>`).join('');
+
+  // 2) Horizontal bar chart, stages in CRM order. Resize the canvas
+  //    container based on stage count so very long pipelines (Builderwell
+  //    has 17) don't squeeze into a tiny chart.
+  const wrap = document.getElementById('stagesChartWrap');
+  wrap.style.height = Math.max(260, s.stages.length * 28 + 60) + 'px';
+
+  destroy('chartStages');
+  CHARTS.chartStages = new Chart(document.getElementById('chartStages').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: s.stages.map(x => x.name),
+      datasets: [{
+        data: s.stages.map(x => x.count),
+        backgroundColor: s.stages.map(x => x.won ? '#10B981' : (x.lost ? '#EF4444' : (x.terminal ? '#F59E0B' : PAYLOAD.brand.accent))),
+        borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const stage = s.stages[ctx.dataIndex];
+              const count = fmt.int(stage.count);
+              const pct   = fmt.pct(stage.pctOfTotal);
+              const ret   = stage.retentionFromPrev != null ? '  •  ' + fmt.pct(stage.retentionFromPrev) + ' of prev' : '';
+              return count + ' (' + pct + ')' + ret;
+            }
+          }
+        }
+      },
+      scales: { x: AXIS, y: AXIS }
+    }
+  });
+
+  // 3) Pipeline status donut.
+  destroy('chartStagesPie');
+  const pieData = [
+    { label: 'Active', value: s.summary.active, color: '#3B82F6' },
+    { label: 'Won',    value: s.summary.won,    color: '#10B981' },
+    { label: 'Lost',   value: s.summary.lost,   color: '#EF4444' }
+  ].filter(x => x.value > 0);
+  CHARTS.chartStagesPie = new Chart(document.getElementById('chartStagesPie').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: pieData.map(x => x.label),
+      datasets: [{ data: pieData.map(x => x.value), backgroundColor: pieData.map(x => x.color),
+                   borderColor: '#131B2E', borderWidth: 2 }]
+    },
+    options: { cutout: '62%', plugins: { legend: Object.assign({ position: 'bottom' }, LEGEND) } }
+  });
+
+  // 4) Stage breakdown table.
+  const rows = s.stages.map(x => {
+    const change = x.changeFromPrev;
+    const changeHtml = change == null
+      ? '<span style="color:var(--muted)">—</span>'
+      : (change > 0
+          ? '<span class="pos">+' + fmt.int(change) + '</span>'
+          : (change < 0
+              ? '<span class="neg">' + fmt.int(change) + '</span>'
+              : '<span style="color:var(--muted)">0</span>'));
+    const retentionHtml = x.retentionFromPrev == null
+      ? '<span style="color:var(--muted)">—</span>'
+      : fmt.pct(x.retentionFromPrev);
+    const badge = x.won  ? '<span class="pill green" style="margin-left:6px;">Won</span>'
+                : x.lost ? '<span class="pill" style="margin-left:6px;background:rgba(239,68,68,0.14);color:var(--red);">Lost</span>'
+                : x.terminal ? '<span class="pill" style="margin-left:6px;background:rgba(245,158,11,0.14);color:var(--amber);">Branch</span>'
+                : '';
+    return `<tr>
+      <td>${escapeHtml(x.name)}${badge}</td>
+      <td class="num">${fmt.int(x.count)}</td>
+      <td class="num">${fmt.pct(x.pctOfTotal)}</td>
+      <td class="num">${changeHtml}</td>
+      <td class="num">${retentionHtml}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('stagesTable').innerHTML =
+    '<div class="table-scroll"><table><thead><tr>' +
+    '<th>Stage</th><th class="num">Leads</th><th class="num">% of Total</th><th class="num">Δ from Prev</th><th class="num">Retention from Prev</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
 // ----- Top Creatives -------------------------------------------------------

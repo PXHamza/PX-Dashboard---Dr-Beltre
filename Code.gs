@@ -101,7 +101,8 @@ function getDashboardPayload(filters) {
     errors:              computeErrors(cur),
     formQuestions:       formInsights(cur),
     alerts:              computeAlerts(cur),
-    topCreatives:        topCreatives(cur)
+    topCreatives:        topCreatives(cur),
+    stages:              computeStages(cur)
   };
 }
 
@@ -156,6 +157,7 @@ function loadAllRows() {
     const phone   = colIdx.phone        ? str(r[colIdx.phone - 1])                : '';
     const rawCat  = colIdx.leadCategory ? str(r[colIdx.leadCategory - 1])         : '';
     const cls     = classifyLead(rawCat);                          // from Qualification.gs
+    const stage   = classifyStage(rawCat);                         // from Stages.gs
     const notes   = colIdx.salesNotes   ? str(r[colIdx.salesNotes - 1])           : '';
     const revenue = colIdx.saleRevenue  ? num(r[colIdx.saleRevenue - 1])          : 0;
     const source  = colIdx.source       ? str(r[colIdx.source - 1])               : '';
@@ -201,6 +203,7 @@ function loadAllRows() {
       rawCategory: rawCat,
       qualified:   cls.qualified,
       bucket:      cls.bucket,             // 'Qualified' | 'Unqualified' | 'Junk' | 'Unknown'
+      stage:       stage,                  // Stage name from Stages.gs STAGES
       notes:       notes, revenue: revenue,
       source:      source, campaign: camp, adSet: adSet, ad: ad,
       pageVariant: variant, fbclid: fbclid,
@@ -684,6 +687,77 @@ function topCreatives(rows) {
   .filter(function (c) { return c.previewUrl || c.thumbnailUrl; })
   .sort(function (a, b) { return b.leads - a.leads || b.revenue - a.revenue; })
   .slice(0, 30);
+}
+
+// =============================================================================
+// FUNNEL STAGES
+// =============================================================================
+
+/**
+ * Bucket leads by their CRM stage (per Stages.gs) and compute the
+ * payload consumed by the "Funnel Stages" tab.
+ *
+ * For each configured stage we report:
+ *   count              — leads currently at this stage
+ *   pctOfTotal         — count / total leads in the filtered set
+ *   changeFromPrev     — raw delta vs the previous stage's count
+ *   retentionFromPrev  — count / prev.count (useful for sequential
+ *                        transitions; less meaningful for terminal /
+ *                        branch stages — interpret with care)
+ *
+ * Plus a summary block:
+ *   active   — leads not in any terminal stage
+ *   won      — leads in a stage flagged won:true
+ *   lost     — leads in a stage flagged lost:true
+ *   winRate  — won / total
+ *   unmatched — leads whose category didn't match any stage (data hygiene)
+ */
+function computeStages(rows) {
+  const total = rows.length;
+  const counts = {};
+  let unmatched = 0;
+  rows.forEach(function (r) {
+    if (r.stage && r.stage !== 'Other') counts[r.stage] = (counts[r.stage] || 0) + 1;
+    else unmatched++;
+  });
+
+  const ordered = STAGES.map(function (s) {
+    const c = counts[s.name] || 0;
+    return {
+      name:       s.name,
+      count:      c,
+      pctOfTotal: total ? c / total : 0,
+      terminal:   !!s.terminal || !!s.won || !!s.lost,
+      won:        !!s.won,
+      lost:       !!s.lost
+    };
+  });
+
+  // Stage-to-stage transition (rough approximation — branches and
+  // dead-ends mean these numbers are directional indicators, not exact
+  // conversion rates).
+  for (let i = 1; i < ordered.length; i++) {
+    const prev = ordered[i - 1];
+    const cur  = ordered[i];
+    cur.changeFromPrev    = cur.count - prev.count;
+    cur.retentionFromPrev = prev.count > 0 ? cur.count / prev.count : null;
+  }
+
+  const wonCount      = ordered.reduce(function (a, s) { return a + (s.won  ? s.count : 0); }, 0);
+  const lostCount     = ordered.reduce(function (a, s) { return a + (s.lost ? s.count : 0); }, 0);
+  const terminalCount = ordered.reduce(function (a, s) { return a + (s.terminal ? s.count : 0); }, 0);
+
+  return {
+    total:     total,
+    unmatched: unmatched,
+    stages:    ordered,
+    summary: {
+      active:  total - terminalCount,
+      won:     wonCount,
+      lost:    lostCount,
+      winRate: total ? wonCount / total : 0
+    }
+  };
 }
 
 // =============================================================================
