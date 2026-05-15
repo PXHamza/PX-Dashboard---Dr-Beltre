@@ -1,50 +1,40 @@
 /**
- * Stages.gs — per-client pipeline stages for the "Funnel Stages" tab.
+ * Stages.gs — Dr Beltre pipeline stages for the "Funnel Stages" tab.
  *
- * Every client's CRM has a different set of stages (a SaaS funnel looks
- * nothing like a construction-quote funnel). Defining them once here keeps
- * the dashboard layout fixed while making each client's stages a single
- * file edit.
+ * Ordered as the client requested. The dashboard preserves this order in
+ * the distribution chart and breakdown table.
  *
- * STAGES is an ordered array — roughly the order leads progress through
- * the pipeline. The dashboard preserves this order in the distribution
- * chart and the breakdown table.
- *
- * Each stage object:
- *   name      (string, required)  Display label.
- *   match     (string[], required) Case-insensitive substring keywords
- *                                  that classify a raw Lead Category into
- *                                  this stage. First STAGES entry whose
- *                                  match hits wins — so put more specific
- *                                  variants (e.g. "Unqualified (Post Call)")
- *                                  BEFORE the broad version ("Unqualified").
- *   terminal  (boolean, optional) Dead-end / branch state. Excluded from
- *                                  the "active in pipeline" count.
- *   won       (boolean, optional) Counts toward the win rate. Also implies
- *                                  terminal.
- *   lost      (boolean, optional) Counts toward the lost bucket. Also
- *                                  implies terminal.
- *
- * To deploy on a new client: replace the STAGES list with their CRM stages
- * in the order they appear. Nothing else changes.
+ * Notes:
+ *   - "Booked Consult" → "Booked Surgery" → "Qualified (Moving Forward)"
+ *     is the happy-path progression.
+ *   - "Unqualified" is the only stage that disqualifies a lead (see
+ *     Qualification.gs).
+ *   - "Waiting for Finance" is a parking state — leads here are still
+ *     active in the pipeline, just blocked on external approval.
+ *   - "GLP-1 Downsell" captures the alternate (lower-priced) product
+ *     path — also kept active so leads here still count toward the
+ *     pipeline volume.
  */
 
 const STAGES = [
-  { name: 'New Lead',         match: ['new lead']                                 },
-  { name: 'Tried Contacting', match: ['tried contacting', 'attempted']            },
-  { name: 'Booked Call',      match: ['booked call', 'booked', 'scheduled']       },
-  { name: 'Showed Up',        match: ['showed up', 'showed', 'completed call']    },
-  { name: 'Qualified',        match: ['qualified']                                },
-  { name: 'Unqualified',      match: ['unqualified'],   terminal: true            },
-  { name: 'Closed Won',       match: ['closed won', 'won'],  won:  true, terminal: true },
-  { name: 'Closed Lost',      match: ['closed lost', 'lost'], lost: true, terminal: true }
+  { name: 'New Lead',                   match: ['new lead']                                 },
+  { name: 'Tried Contacting',           match: ['tried contacting', 'attempted']            },
+  { name: 'Unqualified',                match: ['unqualified'],         terminal: true      },
+  { name: 'Booked Consult',             match: ['booked consult']                           },
+  { name: 'Booked Surgery',             match: ['booked surgery']                           },
+  { name: 'Qualified (Moving Forward)', match: ['qualified (moving forward)',
+                                                'qualified moving forward',
+                                                'moving forward']                           },
+  { name: 'Won',                        match: ['won'],  won:  true,    terminal: true      },
+  { name: 'Lost',                       match: ['lost'], lost: true,    terminal: true      },
+  { name: 'Waiting for Finance',        match: ['waiting for finance', 'awaiting finance']  },
+  { name: 'GLP-1 Downsell',             match: ['glp-1 downsell', 'glp1 downsell',
+                                                'glp-1', 'glp1']                            }
 ];
 
 /**
  * Map a raw lead-category value to one of the configured stage names.
- * Returns 'Other' if nothing matches — those leads show up in a separate
- * "Unmatched" bucket on the dashboard so a typo in the source data is
- * immediately visible.
+ * Returns 'Other' if nothing matches.
  */
 function classifyStage(rawCategory) {
   const s = (rawCategory == null ? '' : rawCategory.toString()).toLowerCase().trim();
