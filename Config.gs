@@ -14,6 +14,25 @@
  *
  * Everything else (KPI math, charts, layout) reads from this file via
  * field keys, so a column move or a rename never breaks the dashboard.
+ *
+ * ----------------------------------------------------------------------------
+ * BUILDERWELL — column layout (differs from the master / Dr Beltre layout
+ * because Builderwell captures an "Address" column at E, which pushes every
+ * field after it one column to the right):
+ *
+ *   A  Date                       L  Ad
+ *   B  Name                       M  Page Variant
+ *   C  Email                      N  Fbclid
+ *   D  Phone Number               O  Q1 — Type of Project
+ *   E  Address  *not used*        P  Q2 — Budget
+ *   F  Lead Category              Q  Q3 — When to start
+ *   G  Sales team notes           R  Q4 — Designs / floor plans?
+ *   H  Sale Revenue               S  Q5 — Tell us more
+ *   I  Source                     T  Q6 — Area
+ *   J  Campaign                   U  Ad Preview Link
+ *   K  Ad set                     V  Creative Preview Link
+ *                                 W  Ad Thumbnail (=IMAGE rendering — not used)
+ * ----------------------------------------------------------------------------
  */
 
 const CONFIG = {
@@ -29,40 +48,40 @@ const CONFIG = {
   //    Matching order (resolveColumn in Code.gs):
   //      1. EXACT case-insensitive match — the value here matches a header
   //         character-for-character. Use this when headers are clean.
-  //      2. Case-insensitive "contains" — used as a fallback when no exact
-  //         match exists (e.g. value 'Date' matches header 'Created Date').
-  //      3. Column letter — if the value looks like 'A', 'AA' etc and no
-  //         header matched, treated as a literal column letter.
+  //      2. Case-insensitive "contains" — fallback for renames.
+  //      3. Column letter — if the value looks like 'A', 'AA' etc.
   //
-  //    IMPORTANT: ambiguous short values like 'Ad' will EXACT-match a header
-  //    called "Ad" (column K) before falling back to contains-match. If your
-  //    header is actually "Ad Name", set `ad: 'Ad Name'` so it doesn't
-  //    contains-match "Ad Set" by accident.
+  //    For Builderwell we use header text for the standard fields (so
+  //    minor column shifts don't break anything) and column letters for
+  //    the two creative-preview columns (which typically don't have a
+  //    header row).
   //
-  //    Set a value to '' (empty string) to disable that field entirely.
+  //    Note: column E (Address) is intentionally NOT mapped — the
+  //    dashboard doesn't visualise it.
   // ---------------------------------------------------------------------------
   COLUMNS: {
-    date:         'Date',                // A — when the lead came in
+    date:         'Date',                // A
     name:         'Name',                // B
     email:        'Email',               // C
-    phone:        'Phone',               // D
-    leadCategory: 'Lead Category',       // E — Qualified / Unqualified / Junk
-    salesNotes:   'Sales Team Notes',    // F
-    saleRevenue:  'Sale Revenue',        // G — numeric, blank/0 = not closed
-    source:       'Source',              // H — Facebook, Google, IG, etc.
-    campaign:     'Campaign',            // I
-    adSet:        'Ad Set',              // J
-    ad:           'Ad',                  // K
-    pageVariant:  'Page Variant',        // L
-    fbclid:       'Fbclid',              // M
+    phone:        'Phone Number',        // D
+    leadCategory: 'Lead Category',       // F  (Address sits at E and is unused)
+    salesNotes:   'Sales team notes',    // G
+    saleRevenue:  'Sale Revenue',        // H
+    source:       'Source',              // I
+    campaign:     'Campaign',            // J
+    adSet:        'Ad set',              // K
+    ad:           'Ad',                  // L
+    pageVariant:  'Page Variant',        // M
+    fbclid:       'Fbclid',              // N
 
     // ---- Creative-preview columns (used by the "Top Creatives" tab) ----
-    // Column V holds the Facebook ad-preview URL (the clickable link).
-    // Column W holds the Creative Preview Link — a direct, full-resolution
-    // image URL used as the thumbnail. Both default to column letters so
-    // they work whether or not those columns have header text.
-    adPreviewUrl:   'V',                 // V — Ad Preview Link
-    adThumbnailUrl: 'W'                  // W — Creative Preview Link (direct image URL)
+    // Column U holds the clickable Facebook ad-preview URL.
+    // Column V holds the Creative Preview Link — a direct, full-resolution
+    // image URL used as the thumbnail.
+    // Column W ("Ad Thumbnail") is the =IMAGE() rendering for humans in
+    // the sheet — we don't read it because V already gives us the URL.
+    adPreviewUrl:   'U',                 // U — Ad Preview Link
+    adThumbnailUrl: 'V'                  // V — Creative Preview Link (direct image URL)
   },
 
   // ---------------------------------------------------------------------------
@@ -75,7 +94,7 @@ const CONFIG = {
   // ---------------------------------------------------------------------------
   BRAND: {
     title:    'PX Insights',
-    subtitle: 'Funnel Quality & Ad Performance',
+    subtitle: 'Builderwell — Funnel Quality & Ad Performance',
     logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
     linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
@@ -88,6 +107,8 @@ const CONFIG = {
 
 // =============================================================================
 // FORM_QUESTIONS — the open-ended questions to chart on the Form Insights tab.
+//
+// Builderwell has 6 form questions, in columns O → T.
 //
 // Each object:
 //   header  (string)  Header text in the data sheet (case-insensitive contains).
@@ -105,39 +126,39 @@ const CONFIG = {
 
 const FORM_QUESTIONS = [
   {
-    header: 'How long have you been struggling with your weight?',
-    label:  'Struggle Duration',
+    header: 'Please Select Your Type Of Project',
+    label:  'Project Type',
     type:   'choice',
-    topN:   8
+    topN:   10
   },
   {
-    header: 'Are you currently diabetic?',
-    label:  'Diabetic',
+    header: 'What is your budget for this project',
+    label:  'Budget',
     type:   'choice',
-    topN:   6
+    topN:   10
   },
   {
-    header: 'How much weight are you looking to lose?',
-    label:  'Weight to Lose',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'biggest motivation',
-    label:  'Motivation',
-    type:   'text',
-    topN:   20
-  },
-  {
-    header: 'When would you look at getting started?',
+    header: 'When are you looking to start this building project',
     label:  'Start Timing',
     type:   'choice',
     topN:   8
   },
   {
-    header: 'Anything else you would like to tell us',
-    label:  'Other Notes',
+    header: 'Do you have designs and floor plans already',
+    label:  'Designs Ready?',
+    type:   'choice',
+    topN:   6
+  },
+  {
+    header: 'Tell us a little bit more about your project',
+    label:  'Project Detail',
     type:   'text',
     topN:   25
+  },
+  {
+    header: 'Area',
+    label:  'Area',
+    type:   'choice',
+    topN:   10
   }
 ];
