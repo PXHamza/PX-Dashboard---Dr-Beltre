@@ -14,6 +14,22 @@
  *
  * Everything else (KPI math, charts, layout) reads from this file via
  * field keys, so a column move or a rename never breaks the dashboard.
+ *
+ * ----------------------------------------------------------------------------
+ * LINCOLN INSTITUTE — column layout:
+ *
+ *   A  Date           K  Ad              U  Q8  Owner Time Away
+ *   B  Name           L  Page Variant    V  Q9  Recent Issues
+ *   C  Email          M  Fbclid          W  Q10 Rebooking Rate
+ *   D  Phone          N  Q1  Role        X  Q11 Clinical Confidence
+ *   E  Lead Category  O  Q2  12-mo Goal  Y  Q12 Top Outcome
+ *   F  Sales notes    P  Q3  Challenge   Z  Q13 Leadership Rhythm
+ *   G  Sale Revenue   Q  Q4  Rev Level   AA Q14 Growth Constraint
+ *   H  Source         R  Q5  Cur Revenue AB Q15 Top Outcome (alt)
+ *   I  Campaign       S  Q6  Team Size   AC Ad Preview Link
+ *   J  Ad set         T  Q7  Practice    AD Creative Preview Link
+ *                            Today        AE Ad Thumbnail (=IMAGE — unused)
+ * ----------------------------------------------------------------------------
  */
 
 const CONFIG = {
@@ -27,42 +43,34 @@ const CONFIG = {
   // 2) Column mapping — field key → header text in row 1 of DATA_SHEET.
   //
   //    Matching order (resolveColumn in Code.gs):
-  //      1. EXACT case-insensitive match — the value here matches a header
-  //         character-for-character. Use this when headers are clean.
-  //      2. Case-insensitive "contains" — used as a fallback when no exact
-  //         match exists (e.g. value 'Date' matches header 'Created Date').
-  //      3. Column letter — if the value looks like 'A', 'AA' etc and no
-  //         header matched, treated as a literal column letter.
-  //
-  //    IMPORTANT: ambiguous short values like 'Ad' will EXACT-match a header
-  //    called "Ad" (column K) before falling back to contains-match. If your
-  //    header is actually "Ad Name", set `ad: 'Ad Name'` so it doesn't
-  //    contains-match "Ad Set" by accident.
-  //
-  //    Set a value to '' (empty string) to disable that field entirely.
+  //      1. Column letter (1-3 ALL-CAPS letters) — used here for AC / AD.
+  //      2. EXACT case-insensitive header match.
+  //      3. Case-insensitive "contains" fallback.
   // ---------------------------------------------------------------------------
   COLUMNS: {
-    date:         'Date',                // A — when the lead came in
+    date:         'Date',                // A
     name:         'Name',                // B
     email:        'Email',               // C
-    phone:        'Phone',               // D
-    leadCategory: 'Lead Category',       // E — Qualified / Unqualified / Junk
-    salesNotes:   'Sales Team Notes',    // F
-    saleRevenue:  'Sale Revenue',        // G — numeric, blank/0 = not closed
-    source:       'Source',              // H — Facebook, Google, IG, etc.
+    phone:        'Phone Number',        // D
+    leadCategory: 'Lead Category',       // E
+    salesNotes:   'Sales team notes',    // F
+    saleRevenue:  'Sale Revenue',        // G
+    source:       'Source',              // H
     campaign:     'Campaign',            // I
-    adSet:        'Ad Set',              // J
+    adSet:        'Ad set',              // J
     ad:           'Ad',                  // K
     pageVariant:  'Page Variant',        // L
     fbclid:       'Fbclid',              // M
 
     // ---- Creative-preview columns (used by the "Top Creatives" tab) ----
-    // Column V holds the Facebook ad-preview URL (the clickable link).
-    // Column W holds the Creative Preview Link — a direct, full-resolution
-    // image URL used as the thumbnail. Both default to column letters so
-    // they work whether or not those columns have header text.
-    adPreviewUrl:   'V',                 // V — Ad Preview Link
-    adThumbnailUrl: 'W'                  // W — Creative Preview Link (direct image URL)
+    // Column AC holds the clickable FB ad-preview URL.
+    // Column AD holds the Creative Preview Link — a direct, full-resolution
+    // image URL used as the thumbnail.
+    // Column AE ("Ad Thumbnail") is the =IMAGE() rendering for humans
+    // viewing the sheet — we don't read it because AD already gives us
+    // the URL.
+    adPreviewUrl:   'AC',                // AC — Ad Preview Link
+    adThumbnailUrl: 'AD'                 // AD — Creative Preview Link (direct image URL)
   },
 
   // ---------------------------------------------------------------------------
@@ -75,7 +83,7 @@ const CONFIG = {
   // ---------------------------------------------------------------------------
   BRAND: {
     title:    'PX Insights',
-    subtitle: 'Funnel Quality & Ad Performance',
+    subtitle: 'Lincoln Institute — Funnel Quality & Ad Performance',
     logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
     linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
@@ -87,57 +95,32 @@ const CONFIG = {
 };
 
 // =============================================================================
-// FORM_QUESTIONS — the open-ended questions to chart on the Form Insights tab.
+// FORM_QUESTIONS — Lincoln Institute has 15 questions in columns N → AB.
 //
-// Each object:
-//   header  (string)  Header text in the data sheet (case-insensitive contains).
-//                     Leave alone if you don't know — Code.gs will look up the
-//                     exact column at runtime.
-//   label   (string)  Short label shown above the chart.
-//   type    'choice' | 'text'
-//                     'choice' → bar chart of the most common answers
-//                     'text'   → top words list (mini word cloud)
-//   topN    (number)  How many bars/words to render. Default 10.
-//
-// To add a question for a new client: append a new object. To remove one:
-// delete its entry. No other file needs to change.
+// Notes on the matching strategy:
+//   - For questions whose header text is unique, we use a distinctive
+//     substring (case-insensitive contains-match).
+//   - Q12 and Q15 have IDENTICAL header text ("What outcome matters most
+//     in the next 12 months?"). Header-text matching can't tell them
+//     apart, so we use raw column letters ('Y' and 'AB') for those two.
+//     resolveColumn in Code.gs treats a 1-3 ALL-CAPS spec as a literal
+//     column letter, so this works without ambiguity.
 // =============================================================================
 
 const FORM_QUESTIONS = [
-  {
-    header: 'How long have you been struggling with your weight?',
-    label:  'Struggle Duration',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Are you currently diabetic?',
-    label:  'Diabetic',
-    type:   'choice',
-    topN:   6
-  },
-  {
-    header: 'How much weight are you looking to lose?',
-    label:  'Weight to Lose',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'biggest motivation',
-    label:  'Motivation',
-    type:   'text',
-    topN:   20
-  },
-  {
-    header: 'When would you look at getting started?',
-    label:  'Start Timing',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Anything else you would like to tell us',
-    label:  'Other Notes',
-    type:   'text',
-    topN:   25
-  }
+  { header: 'Practice Owner or Practice Manager',                  label: 'Role',                type: 'choice', topN:  6 },
+  { header: '#1 goal',                                             label: '12-Month Goal',       type: 'choice', topN: 10 },
+  { header: 'biggest challenge or constraint in your business',    label: 'Biggest Challenge',   type: 'choice', topN: 10 },
+  { header: 'level of revenue',                                    label: 'Revenue Level',       type: 'choice', topN:  8 },
+  { header: 'current practice revenue',                            label: 'Current Revenue',     type: 'choice', topN:  8 },
+  { header: 'team members work in the practice',                   label: 'Team Size',           type: 'choice', topN:  8 },
+  { header: 'statement feels most true',                           label: 'Practice Today',      type: 'choice', topN:  8 },
+  { header: 'owner takes time away',                               label: 'Owner Time Away',     type: 'choice', topN:  6 },
+  { header: 'shown up in the last 30 days',                        label: 'Recent Issues',       type: 'choice', topN: 10 },
+  { header: 'patients book their next appointments',               label: 'Rebooking Rate',      type: 'choice', topN:  6 },
+  { header: 'How confident is your clinical team',                 label: 'Clinical Confidence', type: 'choice', topN:  6 },
+  { header: 'Y',                                                   label: 'Top Outcome',         type: 'choice', topN:  8 },
+  { header: 'leadership rhythm',                                   label: 'Leadership Rhythm',   type: 'choice', topN:  6 },
+  { header: 'biggest constraint to your next stage',               label: 'Growth Constraint',   type: 'choice', topN:  8 },
+  { header: 'AB',                                                  label: 'Top Outcome (alt)',   type: 'choice', topN:  8 }
 ];

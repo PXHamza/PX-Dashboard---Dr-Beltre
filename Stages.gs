@@ -1,50 +1,50 @@
 /**
- * Stages.gs — per-client pipeline stages for the "Funnel Stages" tab.
+ * Stages.gs — Lincoln Institute pipeline stages for the "Funnel Stages" tab.
  *
- * Every client's CRM has a different set of stages (a SaaS funnel looks
- * nothing like a construction-quote funnel). Defining them once here keeps
- * the dashboard layout fixed while making each client's stages a single
- * file edit.
+ * Ordered as the client supplied them. The dashboard preserves this order
+ * in the distribution chart and breakdown table.
  *
- * STAGES is an ordered array — roughly the order leads progress through
- * the pipeline. The dashboard preserves this order in the distribution
- * chart and the breakdown table.
+ * Pipeline shape:
+ *   New Lead → Call Booked (or Quiz Funnel side-path) → Proposal Sent →
+ *   Bank Options Sent → Follow Up Call → Supporting Documents Requested →
+ *   Bank Application Submitted → Bank Approval → Approved → Purchased.
  *
- * Each stage object:
- *   name      (string, required)  Display label.
- *   match     (string[], required) Case-insensitive substring keywords
- *                                  that classify a raw Lead Category into
- *                                  this stage. First STAGES entry whose
- *                                  match hits wins — so put more specific
- *                                  variants (e.g. "Unqualified (Post Call)")
- *                                  BEFORE the broad version ("Unqualified").
- *   terminal  (boolean, optional) Dead-end / branch state. Excluded from
- *                                  the "active in pipeline" count.
- *   won       (boolean, optional) Counts toward the win rate. Also implies
- *                                  terminal.
- *   lost      (boolean, optional) Counts toward the lost bucket. Also
- *                                  implies terminal.
+ * Terminal stages:
+ *   - "No show" / "Not qualified" — branch off pre-deal.
+ *   - "Purchased" — won.
+ *   - "PRE-APPROVAL COLLAPSED" — lost late in the bank-approval process.
  *
- * To deploy on a new client: replace the STAGES list with their CRM stages
- * in the order they appear. Nothing else changes.
+ * Ordering note: "Bank Approval" sits before "Approved" so that a raw
+ * value of "Bank Approval" matches its own stage. "Approved" uses the
+ * exact keyword 'approved' (with the -d), which does NOT substring-match
+ * "approval", "pre-approval", etc.
  */
 
 const STAGES = [
-  { name: 'New Lead',         match: ['new lead']                                 },
-  { name: 'Tried Contacting', match: ['tried contacting', 'attempted']            },
-  { name: 'Booked Call',      match: ['booked call', 'booked', 'scheduled']       },
-  { name: 'Showed Up',        match: ['showed up', 'showed', 'completed call']    },
-  { name: 'Qualified',        match: ['qualified']                                },
-  { name: 'Unqualified',      match: ['unqualified'],   terminal: true            },
-  { name: 'Closed Won',       match: ['closed won', 'won'],  won:  true, terminal: true },
-  { name: 'Closed Lost',      match: ['closed lost', 'lost'], lost: true, terminal: true }
+  { name: 'New Lead',                       match: ['new lead']                                      },
+  { name: 'Call Booked',                    match: ['call booked']                                   },
+  { name: 'Quiz Funnel',                    match: ['quiz funnel']                                   },
+  { name: 'No show',                        match: ['no show', 'no-show'],            terminal: true },
+  { name: 'Not qualified',                  match: ['not qualified'],                 terminal: true },
+  { name: 'Proposal Sent',                  match: ['proposal sent']                                 },
+  { name: 'Bank Options Sent',              match: ['bank options sent']                             },
+  { name: 'Follow Up Call',                 match: ['follow up call', 'follow-up call']              },
+  { name: 'Supporting Documents Requested', match: ['supporting documents requested',
+                                                    'documents requested']                          },
+  { name: 'Bank Application Submitted',     match: ['bank application submitted',
+                                                    'application submitted']                        },
+  { name: 'Bank Approval',                  match: ['bank approval']                                 },
+  { name: 'Approved',                       match: ['approved']                                      },
+  { name: 'Purchased',                      match: ['purchased'], won:  true,         terminal: true },
+  { name: 'PRE-APPROVAL COLLAPSED',         match: ['pre-approval collapsed',
+                                                    'pre approval collapsed',
+                                                    'preapproval collapsed'],
+                                            lost: true,                               terminal: true }
 ];
 
 /**
  * Map a raw lead-category value to one of the configured stage names.
- * Returns 'Other' if nothing matches — those leads show up in a separate
- * "Unmatched" bucket on the dashboard so a typo in the source data is
- * immediately visible.
+ * Returns 'Other' if nothing matches.
  */
 function classifyStage(rawCategory) {
   const s = (rawCategory == null ? '' : rawCategory.toString()).toLowerCase().trim();
