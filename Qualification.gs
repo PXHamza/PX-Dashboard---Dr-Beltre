@@ -1,19 +1,18 @@
 /**
  * Qualification.gs — Builderwell lead-qualification rule.
  *
- * A lead counts as QUALIFIED unless its Lead Category contains one of the
- * disqualifying keywords below. Aligned with Builderwell's CRM stages so
- * that:
- *   - Pre-call stages (New Lead, Meeting Booked, Cancelled, No show)
- *     are NOT yet qualified — the salesperson hasn't confirmed fit.
- *   - "Qualified (Post Call)" and every later stage (Home Consultation,
- *     3D Scan, …, Build Phase, Won, Lost) all count as qualified, since
- *     the lead passed the post-call screening at some point.
- *   - "Unqualified" / "Unqualified (Post Call)" are explicitly NOT qualified.
+ * A lead is considered UNQUALIFIED only when its Lead Category is one of:
+ *   - "Unqualified"               (auto-set when the budget answer is
+ *                                  Under $200,000)
+ *   - "Unqualified (Post Call)"   (set manually by sales after a call)
  *
- * If Builderwell wants "Meeting Booked" leads to count as qualified
- * (sales-qualified at the booking step rather than post-call), remove
- * 'meeting booked' from DISQUALIFYING_KEYWORDS.
+ * Everything else — including New Lead, Meeting Booked, Meeting Cancelled,
+ * No show, Qualified (Post Call), Home Consultation, all later sales
+ * stages, Won, and Lost — counts as QUALIFIED.
+ *
+ * Because both disqualifying buckets contain the substring "unqualified",
+ * a single keyword is enough to match both. If Builderwell later adds
+ * another disqualifying category, append it to DISQUALIFYING_KEYWORDS.
  */
 
 const QUALIFICATION = {
@@ -22,10 +21,6 @@ const QUALIFICATION = {
    * Anything else → qualified.
    */
   DISQUALIFYING_KEYWORDS: [
-    'new lead',
-    'meeting booked',
-    'meeting cancelled',
-    'no show',
     'unqualified'        // catches both "Unqualified" and "Unqualified (Post Call)"
   ],
 
