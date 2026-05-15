@@ -1,50 +1,51 @@
 /**
- * Stages.gs — per-client pipeline stages for the "Funnel Stages" tab.
+ * Stages.gs — Builderwell pipeline stages for the "Funnel Stages" tab.
  *
- * Every client's CRM has a different set of stages (a SaaS funnel looks
- * nothing like a construction-quote funnel). Defining them once here keeps
- * the dashboard layout fixed while making each client's stages a single
- * file edit.
+ * Ordered roughly the way leads progress through Builderwell's CRM. The
+ * dashboard preserves this order in the distribution chart and breakdown
+ * table.
  *
- * STAGES is an ordered array — roughly the order leads progress through
- * the pipeline. The dashboard preserves this order in the distribution
- * chart and the breakdown table.
- *
- * Each stage object:
- *   name      (string, required)  Display label.
- *   match     (string[], required) Case-insensitive substring keywords
- *                                  that classify a raw Lead Category into
- *                                  this stage. First STAGES entry whose
- *                                  match hits wins — so put more specific
- *                                  variants (e.g. "Unqualified (Post Call)")
- *                                  BEFORE the broad version ("Unqualified").
- *   terminal  (boolean, optional) Dead-end / branch state. Excluded from
- *                                  the "active in pipeline" count.
- *   won       (boolean, optional) Counts toward the win rate. Also implies
- *                                  terminal.
- *   lost      (boolean, optional) Counts toward the lost bucket. Also
- *                                  implies terminal.
- *
- * To deploy on a new client: replace the STAGES list with their CRM stages
- * in the order they appear. Nothing else changes.
+ * Notes on ordering:
+ *   - "Unqualified (Post Call)" is listed BEFORE "Unqualified" so the
+ *     specific phrase matches first. classifyStage() returns the first
+ *     stage whose match keywords hit; a more general "unqualified" entry
+ *     would otherwise swallow the post-call variant.
+ *   - Branch / dead-end stages (Meeting Cancelled, No show, Unqualified*,
+ *     Lost) are flagged terminal: true so they're excluded from the
+ *     "Active in Pipeline" count and tinted differently on the chart.
+ *   - "Won" / "Lost" are flagged won / lost so they feed the Win Rate KPI.
  */
 
 const STAGES = [
-  { name: 'New Lead',         match: ['new lead']                                 },
-  { name: 'Tried Contacting', match: ['tried contacting', 'attempted']            },
-  { name: 'Booked Call',      match: ['booked call', 'booked', 'scheduled']       },
-  { name: 'Showed Up',        match: ['showed up', 'showed', 'completed call']    },
-  { name: 'Qualified',        match: ['qualified']                                },
-  { name: 'Unqualified',      match: ['unqualified'],   terminal: true            },
-  { name: 'Closed Won',       match: ['closed won', 'won'],  won:  true, terminal: true },
-  { name: 'Closed Lost',      match: ['closed lost', 'lost'], lost: true, terminal: true }
+  // Pre-call
+  { name: 'New Lead (Not Booked)',     match: ['new lead (not booked)', 'new lead']                                       },
+  { name: 'Meeting Booked',            match: ['meeting booked']                                                          },
+  { name: 'Meeting Cancelled',         match: ['meeting cancelled', 'meeting cancel'],            terminal: true          },
+  { name: 'No show',                   match: ['no show', 'no-show'],                             terminal: true          },
+
+  // Post-call screening
+  { name: 'Qualified (Post Call)',     match: ['qualified (post call)', 'qualified post call']                            },
+  { name: 'Unqualified (Post Call)',   match: ['unqualified (post call)', 'unqualified post call'], terminal: true        },
+  { name: 'Unqualified',               match: ['unqualified'],                                    terminal: true          },
+
+  // Sales process
+  { name: 'Home Consultation',                         match: ['home consultation']                                       },
+  { name: '3D Scan Completed',                         match: ['3d scan completed', '3d scan']                            },
+  { name: 'In Office Estimate Review',                 match: ['in office estimate review', 'estimate review']            },
+  { name: 'Design and Architecture Proposal Presented',match: ['design and architecture proposal', 'design and architecture'] },
+  { name: 'Design Package Signed or Deposit Paid',     match: ['design package signed', 'deposit paid']                   },
+  { name: 'Plans Approved',                            match: ['plans approved']                                          },
+  { name: 'Construction Proposal Presented',           match: ['construction proposal presented', 'construction proposal'] },
+  { name: 'Build Phase',                               match: ['build phase']                                             },
+
+  // Terminal outcomes
+  { name: 'Won',                       match: ['won'],   won:  true, terminal: true              },
+  { name: 'Lost',                      match: ['lost'],  lost: true, terminal: true              }
 ];
 
 /**
  * Map a raw lead-category value to one of the configured stage names.
- * Returns 'Other' if nothing matches — those leads show up in a separate
- * "Unmatched" bucket on the dashboard so a typo in the source data is
- * immediately visible.
+ * Returns 'Other' if nothing matches.
  */
 function classifyStage(rawCategory) {
   const s = (rawCategory == null ? '' : rawCategory.toString()).toLowerCase().trim();
