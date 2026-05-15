@@ -12,6 +12,7 @@ tables — read-only, no extra tabs created in the spreadsheet.
 | `dashboard.html` | Popup UI: tabs, KPI cards, Chart.js charts. | Rarely |
 | `Config.gs` | Column mapping, form questions, brand. | **Yes** |
 | `Qualification.gs` | The single rule that decides "is this lead qualified?". | **Yes** |
+| `Stages.gs` | The client's CRM pipeline stages (powers the Funnel Stages tab). | **Yes** |
 | `appsscript.json` | Manifest. | No |
 
 ## Install
