@@ -65,12 +65,12 @@ const CONFIG = {
     // ---- Creative-preview columns (used by the "Top Creatives" tab) ----
     // Column AC holds the clickable FB ad-preview URL.
     // Column AD holds the Creative Preview Link — a direct, full-resolution
-    // image URL used as the thumbnail.
-    // Column AE ("Ad Thumbnail") is the =IMAGE() rendering for humans
-    // viewing the sheet — we don't read it because AD already gives us
-    // the URL.
-    adPreviewUrl:   'AC',                // AC — Ad Preview Link
-    adThumbnailUrl: 'AD'                 // AD — Creative Preview Link (direct image URL)
+    // image URL used as the thumbnail. For VIDEO creatives this URL isn't
+    // an image the browser can show in an <img>, so the dashboard falls
+    // back to the =IMAGE rendering in column AE (Ad Thumbnail).
+    adPreviewUrl:        'AC',           // AC — Ad Preview Link
+    adThumbnailUrl:      'AD',           // AD — Creative Preview Link (direct image URL)
+    adThumbnailFallback: 'AE'            // AE — Ad Thumbnail (=IMAGE — used for video creatives)
   },
 
   // ---------------------------------------------------------------------------
