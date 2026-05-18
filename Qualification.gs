@@ -1,18 +1,14 @@
 /**
  * Qualification.gs — PX lead-qualification rule.
  *
- * A lead is considered UNQUALIFIED only when its Lead Category contains
- * "unqualified" — i.e. the explicit "Unqualified | After The Call" stage.
+ * A lead is considered UNQUALIFIED if its Lead Category is either:
+ *   - "Unqualified | After The Call"   (caught by the 'unqualified' keyword)
+ *   - "Not A Fit | Application Cancelled" (caught by the 'not a fit' keyword)
+ *
  * Every other stage — including Filled In Form Didn't Book, Booked
  * Strategy Session, No RSVP - Cancelled, Call #1/#2/#3, No Show,
- * Qualified | Not Ready, Contract Sent, Lost, Not A Fit | Application
- * Cancelled, Won, and Paid — counts as QUALIFIED.
- *
- * Tweaking notes:
- *   - To also exclude "Not A Fit | Application Cancelled" from the
- *     qualified bucket, add 'not a fit' to DISQUALIFYING_KEYWORDS below.
- *   - To exclude no-shows and cancelled bookings (treat only post-call
- *     leads as qualifiable), add 'no show' and 'no rsvp' here.
+ * Qualified | Not Ready, Contract Sent, Lost, Won, and Paid — counts as
+ * QUALIFIED.
  */
 
 const QUALIFICATION = {
@@ -21,7 +17,8 @@ const QUALIFICATION = {
    * Anything else → qualified.
    */
   DISQUALIFYING_KEYWORDS: [
-    'unqualified'
+    'unqualified',   // matches "Unqualified | After The Call"
+    'not a fit'      // matches "Not A Fit | Application Cancelled"
   ],
 
   /**
