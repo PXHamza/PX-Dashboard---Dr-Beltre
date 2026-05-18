@@ -138,9 +138,9 @@ function loadAllRows() {
 
   const values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   // Read formulas too — needed so we can extract the URL out of an =IMAGE("url")
-  // cell for the thumbnail column. getValues() of that cell would just return
-  // an opaque image placeholder, not the URL we want to render in the popup.
-  const formulas = colIdx.adThumbnailUrl
+  // cell for the thumbnail columns. getValues() of those cells would just
+  // return an opaque image placeholder, not the URL we want to render.
+  const formulas = (colIdx.adThumbnailUrl || colIdx.adThumbnailFallback)
     ? sheet.getRange(2, 1, lastRow - 1, lastCol).getFormulas()
     : null;
 
@@ -167,24 +167,28 @@ function loadAllRows() {
     const variant = colIdx.pageVariant  ? str(r[colIdx.pageVariant - 1])          : '';
     const fbclid  = colIdx.fbclid       ? str(r[colIdx.fbclid - 1])               : '';
 
-    // Ad-preview link (column V) and creative thumbnail (column W).
+    // Ad-preview link (e.g. column V/N) and creative thumbnail (e.g. W/O).
     //
-    // Column W is a direct, full-resolution image URL ("Creative Preview
-    // Link"), so it's used exactly as-is — no upscaling needed. If a row
-    // instead holds an =IMAGE("...") formula (older sheet format) we
-    // extract the URL out of the formula as a fallback.
+    // For each thumbnail-bearing column we accept either:
+    //   - a plain URL in the cell value, or
+    //   - an =IMAGE("...") formula whose URL we extract.
+    //
+    // The optional adThumbnailFallback column (typically the rendered
+    // =IMAGE thumbnail next to the Creative Preview Link) is shipped as
+    // a SECOND URL. The client falls back to it when the primary URL is
+    // a video / non-image and the <img> fires onerror.
     const adPreviewUrl = colIdx.adPreviewUrl ? str(r[colIdx.adPreviewUrl - 1]) : '';
-    let   adThumbnailUrl = '';
-    if (colIdx.adThumbnailUrl) {
-      const cell = str(r[colIdx.adThumbnailUrl - 1]);
-      if (/^https?:\/\//i.test(cell)) {
-        adThumbnailUrl = cell;                                  // plain URL — the new W format
-      } else {
-        const formula = formulas ? formulas[i][colIdx.adThumbnailUrl - 1] : '';
-        const m = formula && formula.match(/=IMAGE\(\s*"([^"]+)"/i);
-        if (m) adThumbnailUrl = m[1];                           // =IMAGE("url") — older format
-      }
+
+    function extractThumbUrl(colIndex) {
+      if (!colIndex) return '';
+      const cell = str(r[colIndex - 1]);
+      if (/^https?:\/\//i.test(cell)) return cell;
+      const f = formulas ? formulas[i][colIndex - 1] : '';
+      const m = f && f.match(/=IMAGE\(\s*"([^"]+)"/i);
+      return m ? m[1] : '';
     }
+    const adThumbnailUrl         = extractThumbUrl(colIdx.adThumbnailUrl);
+    const adThumbnailUrlFallback = extractThumbUrl(colIdx.adThumbnailFallback);
 
     const formAnswers = {};
     formColIdx.forEach(function (fc) {
@@ -209,6 +213,7 @@ function loadAllRows() {
       pageVariant: variant, fbclid: fbclid,
       adPreviewUrl: adPreviewUrl,
       adThumbnailUrl: adThumbnailUrl,
+      adThumbnailUrlFallback: adThumbnailUrlFallback,
       formAnswers: formAnswers
     });
   }
@@ -662,7 +667,7 @@ function topCreatives(rows) {
       out[k] = {
         ad: r.ad, campaign: r.campaign || '—', adSet: r.adSet || '—',
         leads: 0, qualified: 0, sales: 0, revenue: 0,
-        previewUrl: '', thumbnailUrl: ''
+        previewUrl: '', thumbnailUrl: '', thumbnailUrlFallback: ''
       };
     }
     out[k].leads++;
@@ -671,20 +676,26 @@ function topCreatives(rows) {
     out[k].revenue += r.revenue || 0;
     if (!out[k].previewUrl   && r.adPreviewUrl)   out[k].previewUrl   = r.adPreviewUrl;
     if (!out[k].thumbnailUrl && r.adThumbnailUrl) out[k].thumbnailUrl = r.adThumbnailUrl;
+    if (!out[k].thumbnailUrlFallback && r.adThumbnailUrlFallback) {
+      out[k].thumbnailUrlFallback = r.adThumbnailUrlFallback;
+    }
   });
   return Object.keys(out).map(function (k) {
     const o = out[k];
     return {
-      ad:           o.ad,        campaign: o.campaign,  adSet: o.adSet,
-      leads:        o.leads,
-      qualified:    o.qualified, qualPct:    safeDiv(o.qualified, o.leads),
-      sales:        o.sales,     closeRate:  safeDiv(o.sales,     o.leads),
-      revenue:      o.revenue,   revPerLead: safeDiv(o.revenue,   o.leads),
-      previewUrl:   o.previewUrl,
-      thumbnailUrl: o.thumbnailUrl
+      ad:                   o.ad,        campaign: o.campaign,  adSet: o.adSet,
+      leads:                o.leads,
+      qualified:            o.qualified, qualPct:    safeDiv(o.qualified, o.leads),
+      sales:                o.sales,     closeRate:  safeDiv(o.sales,     o.leads),
+      revenue:              o.revenue,   revPerLead: safeDiv(o.revenue,   o.leads),
+      previewUrl:           o.previewUrl,
+      thumbnailUrl:         o.thumbnailUrl,
+      thumbnailUrlFallback: o.thumbnailUrlFallback
     };
   })
-  .filter(function (c) { return c.previewUrl || c.thumbnailUrl; })
+  // Treat a row as showable if it has ANY of: preview URL, primary
+  // thumbnail, or fallback thumbnail.
+  .filter(function (c) { return c.previewUrl || c.thumbnailUrl || c.thumbnailUrlFallback; })
   .sort(function (a, b) { return b.leads - a.leads || b.revenue - a.revenue; })
   .slice(0, 30);
 }
