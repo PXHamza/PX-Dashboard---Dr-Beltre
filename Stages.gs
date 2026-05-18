@@ -1,50 +1,52 @@
 /**
- * Stages.gs — per-client pipeline stages for the "Funnel Stages" tab.
+ * Stages.gs — PX pipeline stages for the "Funnel Stages" tab.
  *
- * Every client's CRM has a different set of stages (a SaaS funnel looks
- * nothing like a construction-quote funnel). Defining them once here keeps
- * the dashboard layout fixed while making each client's stages a single
- * file edit.
+ * Ordered as the client supplied them. The dashboard preserves this order
+ * in the distribution chart and breakdown table.
  *
- * STAGES is an ordered array — roughly the order leads progress through
- * the pipeline. The dashboard preserves this order in the distribution
- * chart and the breakdown table.
+ * Terminal flags:
+ *   - No RSVP - Cancelled, No Show, Unqualified | After The Call,
+ *     Not A Fit | Application Cancelled — branch / dead-end states.
+ *   - Won AND Paid — both flagged won. Paid is the downstream "money in"
+ *     state; Won is the contract-signed state. If you'd rather only count
+ *     paid deals toward the Win Rate, remove `won: true` from the Won
+ *     entry below.
+ *   - Lost — flagged lost (terminal).
  *
- * Each stage object:
- *   name      (string, required)  Display label.
- *   match     (string[], required) Case-insensitive substring keywords
- *                                  that classify a raw Lead Category into
- *                                  this stage. First STAGES entry whose
- *                                  match hits wins — so put more specific
- *                                  variants (e.g. "Unqualified (Post Call)")
- *                                  BEFORE the broad version ("Unqualified").
- *   terminal  (boolean, optional) Dead-end / branch state. Excluded from
- *                                  the "active in pipeline" count.
- *   won       (boolean, optional) Counts toward the win rate. Also implies
- *                                  terminal.
- *   lost      (boolean, optional) Counts toward the lost bucket. Also
- *                                  implies terminal.
- *
- * To deploy on a new client: replace the STAGES list with their CRM stages
- * in the order they appear. Nothing else changes.
+ * Ordering note: 'Unqualified | After The Call' is matched on its full
+ * specific phrase first; the plain 'unqualified' fallback keyword sits
+ * in the same entry so any minor wording variation still catches.
  */
 
 const STAGES = [
-  { name: 'New Lead',         match: ['new lead']                                 },
-  { name: 'Tried Contacting', match: ['tried contacting', 'attempted']            },
-  { name: 'Booked Call',      match: ['booked call', 'booked', 'scheduled']       },
-  { name: 'Showed Up',        match: ['showed up', 'showed', 'completed call']    },
-  { name: 'Qualified',        match: ['qualified']                                },
-  { name: 'Unqualified',      match: ['unqualified'],   terminal: true            },
-  { name: 'Closed Won',       match: ['closed won', 'won'],  won:  true, terminal: true },
-  { name: 'Closed Lost',      match: ['closed lost', 'lost'], lost: true, terminal: true }
+  { name: "Filled In Form, Didn't Book",              match: ['filled in form', "didn't book"]                                  },
+  { name: 'Booked Strategy Session',                  match: ['booked strategy session', 'strategy session booked']             },
+  { name: 'No RSVP - Cancelled',                      match: ['no rsvp - cancelled', 'no rsvp cancelled', 'no rsvp'],
+                                                      terminal: true                                                            },
+  { name: 'Call #1',                                  match: ['call #1', 'call 1']                                              },
+  { name: 'No Show',                                  match: ['no show', 'no-show'],                terminal: true              },
+  { name: 'Unqualified | After The Call',             match: ['unqualified | after the call',
+                                                              'unqualified after the call',
+                                                              'unqualified'],                       terminal: true              },
+  { name: 'Call #2',                                  match: ['call #2', 'call 2']                                              },
+  { name: 'Call #3',                                  match: ['call #3', 'call 3']                                              },
+  { name: 'Qualified | Not Ready (Longer-Term Nurture)',
+                                                      match: ['qualified | not ready',
+                                                              'qualified not ready',
+                                                              'longer-term nurture',
+                                                              'longer term nurture']                                            },
+  { name: 'Contract Sent',                            match: ['contract sent']                                                  },
+  { name: 'Lost',                                     match: ['lost'],          lost: true,         terminal: true              },
+  { name: 'Not A Fit | Application Cancelled',        match: ['not a fit | application cancelled',
+                                                              'not a fit',
+                                                              'application cancelled'],             terminal: true              },
+  { name: 'Won',                                      match: ['won'],           won:  true,         terminal: true              },
+  { name: 'Paid',                                     match: ['paid'],          won:  true,         terminal: true              }
 ];
 
 /**
  * Map a raw lead-category value to one of the configured stage names.
- * Returns 'Other' if nothing matches — those leads show up in a separate
- * "Unmatched" bucket on the dashboard so a typo in the source data is
- * immediately visible.
+ * Returns 'Other' if nothing matches.
  */
 function classifyStage(rawCategory) {
   const s = (rawCategory == null ? '' : rawCategory.toString()).toLowerCase().trim();

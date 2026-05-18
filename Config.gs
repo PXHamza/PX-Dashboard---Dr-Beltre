@@ -14,6 +14,26 @@
  *
  * Everything else (KPI math, charts, layout) reads from this file via
  * field keys, so a column move or a rename never breaks the dashboard.
+ *
+ * ----------------------------------------------------------------------------
+ * PX — column layout. Note the creative-preview columns (N–P) sit in the
+ * MIDDLE of the sheet, before Page Variant and Fbclid:
+ *
+ *   A  Date                       L  Ad set            U  Q2 Current marketing
+ *   B  Name                       M  Ad                V  Q3 Marketing — other
+ *   C  Email                      N  Ad Preview Link   W  Q4 Problem to solve
+ *   D  Phone Number               O  Creative Prev URL X  Q5 Service area
+ *   E  Company URL  *not used*    P  Ad Thumbnail (-)  Y  Q6 Service area (other)
+ *   F  Lead Category              Q  Page Variant      Z  Q7 When need leads
+ *   G  Strategy Session Time (-)  R  Fbclid            AA Q8 Anything else
+ *   H  Sales team notes           S  Funnel Type (-)
+ *   I  Sale Revenue               T  Q1 Extra projects /yr
+ *   J  Source
+ *   K  Campaign
+ *
+ * Columns marked (-) aren't currently visualised. The dashboard ignores them
+ * but they're documented here for context.
+ * ----------------------------------------------------------------------------
  */
 
 const CONFIG = {
@@ -27,42 +47,34 @@ const CONFIG = {
   // 2) Column mapping — field key → header text in row 1 of DATA_SHEET.
   //
   //    Matching order (resolveColumn in Code.gs):
-  //      1. EXACT case-insensitive match — the value here matches a header
-  //         character-for-character. Use this when headers are clean.
-  //      2. Case-insensitive "contains" — used as a fallback when no exact
-  //         match exists (e.g. value 'Date' matches header 'Created Date').
-  //      3. Column letter — if the value looks like 'A', 'AA' etc and no
-  //         header matched, treated as a literal column letter.
-  //
-  //    IMPORTANT: ambiguous short values like 'Ad' will EXACT-match a header
-  //    called "Ad" (column K) before falling back to contains-match. If your
-  //    header is actually "Ad Name", set `ad: 'Ad Name'` so it doesn't
-  //    contains-match "Ad Set" by accident.
-  //
-  //    Set a value to '' (empty string) to disable that field entirely.
+  //      1. Column letter (1-3 ALL-CAPS letters).
+  //      2. EXACT case-insensitive header match.
+  //      3. Case-insensitive "contains" fallback.
   // ---------------------------------------------------------------------------
   COLUMNS: {
-    date:         'Date',                // A — when the lead came in
+    date:         'Date',                // A
     name:         'Name',                // B
     email:        'Email',               // C
-    phone:        'Phone',               // D
-    leadCategory: 'Lead Category',       // E — Qualified / Unqualified / Junk
-    salesNotes:   'Sales Team Notes',    // F
-    saleRevenue:  'Sale Revenue',        // G — numeric, blank/0 = not closed
-    source:       'Source',              // H — Facebook, Google, IG, etc.
-    campaign:     'Campaign',            // I
-    adSet:        'Ad Set',              // J
-    ad:           'Ad',                  // K
-    pageVariant:  'Page Variant',        // L
-    fbclid:       'Fbclid',              // M
+    phone:        'Phone Number',        // D
+    leadCategory: 'Lead Category',       // F  (Company URL sits at E, not used)
+    salesNotes:   'Sales team notes',    // H  (Strategy Session Time at G, not used)
+    saleRevenue:  'Sale Revenue',        // I
+    source:       'Source',              // J
+    campaign:     'Campaign',            // K
+    adSet:        'Ad set',              // L
+    ad:           'Ad',                  // M
+    pageVariant:  'Page Variant',        // Q
+    fbclid:       'Fbclid',              // R
 
     // ---- Creative-preview columns (used by the "Top Creatives" tab) ----
-    // Column V holds the Facebook ad-preview URL (the clickable link).
-    // Column W holds the Creative Preview Link — a direct, full-resolution
-    // image URL used as the thumbnail. Both default to column letters so
-    // they work whether or not those columns have header text.
-    adPreviewUrl:   'V',                 // V — Ad Preview Link
-    adThumbnailUrl: 'W'                  // W — Creative Preview Link (direct image URL)
+    // Column N holds the clickable FB ad-preview URL.
+    // Column O holds the Creative Preview Link — a direct, full-resolution
+    // image URL used as the thumbnail.
+    // Column P ("Ad Thumbnail") is the =IMAGE() rendering for humans
+    // viewing the sheet — we don't read it because O already gives us
+    // the URL.
+    adPreviewUrl:   'N',                 // N — Preview Link
+    adThumbnailUrl: 'O'                  // O — Creative Preview Link (direct image URL)
   },
 
   // ---------------------------------------------------------------------------
@@ -75,7 +87,7 @@ const CONFIG = {
   // ---------------------------------------------------------------------------
   BRAND: {
     title:    'PX Insights',
-    subtitle: 'Funnel Quality & Ad Performance',
+    subtitle: 'PX — Funnel Quality & Ad Performance',
     logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
     linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
@@ -87,57 +99,20 @@ const CONFIG = {
 };
 
 // =============================================================================
-// FORM_QUESTIONS — the open-ended questions to chart on the Form Insights tab.
+// FORM_QUESTIONS — PX strategy-session form, 8 questions in columns T → AA.
 //
-// Each object:
-//   header  (string)  Header text in the data sheet (case-insensitive contains).
-//                     Leave alone if you don't know — Code.gs will look up the
-//                     exact column at runtime.
-//   label   (string)  Short label shown above the chart.
-//   type    'choice' | 'text'
-//                     'choice' → bar chart of the most common answers
-//                     'text'   → top words list (mini word cloud)
-//   topN    (number)  How many bars/words to render. Default 10.
-//
-// To add a question for a new client: append a new object. To remove one:
-// delete its entry. No other file needs to change.
+// Two questions have an "(Other)" free-text companion column right next to
+// them (U/V and X/Y). Both pairs match on distinct header substrings so
+// the dashboard charts them separately.
 // =============================================================================
 
 const FORM_QUESTIONS = [
-  {
-    header: 'How long have you been struggling with your weight?',
-    label:  'Struggle Duration',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Are you currently diabetic?',
-    label:  'Diabetic',
-    type:   'choice',
-    topN:   6
-  },
-  {
-    header: 'How much weight are you looking to lose?',
-    label:  'Weight to Lose',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'biggest motivation',
-    label:  'Motivation',
-    type:   'text',
-    topN:   20
-  },
-  {
-    header: 'When would you look at getting started?',
-    label:  'Start Timing',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Anything else you would like to tell us',
-    label:  'Other Notes',
-    type:   'text',
-    topN:   25
-  }
+  { header: 'How many extra projects could you handle',                                label: 'Extra Projects / Year',  type: 'choice', topN: 10 },
+  { header: 'What marketing are you doing right now?',                                 label: 'Current Marketing',      type: 'choice', topN: 10 },
+  { header: 'What other marketing are you doing right now? - other',                   label: 'Marketing — Other',      type: 'text',   topN: 20 },
+  { header: 'problem you need solved',                                                 label: 'Problem to Solve',       type: 'text',   topN: 25 },
+  { header: 'Where can you service?',                                                  label: 'Service Area',           type: 'choice', topN: 12 },
+  { header: 'Where can you service? (Other)',                                          label: 'Service Area — Other',   type: 'text',   topN: 20 },
+  { header: 'When do you need more qualified leads?',                                  label: 'Lead Urgency',           type: 'choice', topN:  8 },
+  { header: 'what else do i need to know about your business',                         label: 'Anything Else',          type: 'text',   topN: 30 }
 ];
