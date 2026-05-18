@@ -1098,11 +1098,18 @@ function paintTopCreatives(all) {
     const rank = '#' + (i + 1);
     const url  = r.previewUrl || '';
     const safeUrl = url ? escapeAttr(url) : '';
-    // Column W is already a direct, full-resolution image URL — used as-is.
-    // If FB CDN refuses the request (rare, referrer-related) the onerror
-    // handler below swaps in a clean placeholder.
-    const thumbInner = r.thumbnailUrl
-      ? '<img src="' + escapeAttr(r.thumbnailUrl) + '"' +
+    // Pick a primary thumbnail src. Prefer the Creative Preview Link
+    // (thumbnailUrl); for video creatives that's a non-image URL the
+    // browser can't render, so we stash the =IMAGE-extracted backup
+    // (thumbnailUrlFallback) in data-fallback and let the onerror
+    // handler swap to it. If only one URL is present, that one is used
+    // directly with no fallback.
+    const primarySrc = r.thumbnailUrl || r.thumbnailUrlFallback || '';
+    const altSrc     = (r.thumbnailUrl && r.thumbnailUrlFallback && r.thumbnailUrl !== r.thumbnailUrlFallback)
+                       ? r.thumbnailUrlFallback : '';
+    const thumbInner = primarySrc
+      ? '<img src="' + escapeAttr(primarySrc) + '"' +
+        (altSrc ? ' data-fallback="' + escapeAttr(altSrc) + '"' : '') +
         ' alt="" loading="lazy" referrerpolicy="no-referrer">'
       : '<div class="thumb-fallback">No thumbnail</div>';
     const thumbWrap = url
@@ -1126,11 +1133,19 @@ function paintTopCreatives(all) {
     </div>`;
   }).join('');
 
-  // If FB CDN refuses a thumbnail request (occasionally happens with
-  // googleusercontent referrers) swap in a clean placeholder instead of
-  // letting the browser show a broken-image icon.
+  // Two-step thumbnail fallback. <img> starts with the primary src; if it
+  // fails (video URL, CDN refusal, etc.) we swap to data-fallback (typically
+  // the =IMAGE-extracted thumbnail from the next column over). If THAT also
+  // fails, we replace the whole image with a clean "blocked" placeholder.
   root.querySelectorAll('.thumb img').forEach(img => {
+    let triedFallback = false;
     img.addEventListener('error', () => {
+      const fallback = img.dataset.fallback;
+      if (!triedFallback && fallback && fallback !== img.src) {
+        triedFallback = true;
+        img.src = fallback;
+        return;
+      }
       img.parentNode.innerHTML = '<div class="thumb-fallback">Thumbnail blocked by source</div>';
     });
   });
