@@ -67,7 +67,7 @@ const CONFIG = {
     // this column's =IMAGE() formula. Leave as '' to disable.
     adPreviewUrl:        'V',            // V — Ad Preview Link
     adThumbnailUrl:      'W',            // W — Creative Preview Link (direct image URL)
-    adThumbnailFallback: ''              // Optional: column with =IMAGE() formula (e.g. 'X')
+    adThumbnailFallback: 'X'             // X — Ad Thumbnail (=IMAGE — used for video creatives)
   },
 
   // ---------------------------------------------------------------------------
