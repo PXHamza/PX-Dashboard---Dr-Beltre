@@ -5,144 +5,93 @@
  * Three things to look at:
  *   1) CONFIG.DATA_SHEET    — the tab that holds the raw lead rows.
  *   2) CONFIG.COLUMNS       — map dashboard fields to the client's column
- *                             headers (case-insensitive). If a header is
- *                             renamed or moves, just update the mapping —
- *                             you never need to touch column letters.
+ *                             headers (case-insensitive).
  *   3) FORM_QUESTIONS       — the open-ended form questions to chart in the
- *                             "Form Insights" tab. Add / remove / reword
- *                             freely, then re-open the dashboard.
+ *                             "Form Insights" tab.
  *
- * Everything else (KPI math, charts, layout) reads from this file via
- * field keys, so a column move or a rename never breaks the dashboard.
+ * ----------------------------------------------------------------------------
+ * MMT — column layout:
+ *
+ *   A  Date            K  Ad                 U  Q8 Cash Collected
+ *   B  Name            L  Page Variant       V  Q9 Patients / week
+ *   C  Email           M  Fbclid             W  Q10 Existing certs
+ *   D  Phone Number    N  Q1 Therapist tenure X  Q11 Money spent (alt)
+ *   E  Lead Category   O  Q2 Skill interest   Y  Ad Preview Link
+ *   F  Sales notes     P  Q3 Why MMT          Z  Creative Preview Link
+ *   G  Sale Revenue    Q  Q4 Money spent      AA Ad Thumbnail (=IMAGE)
+ *   H  Source          R  Q5 Cert path
+ *   I  Campaign        S  Q6 Scholarship help
+ *   J  Ad set          T  Q7 30-day start
+ *
+ * Q4 (col Q) and Q11 (col X) have identical header text ("How much money have
+ * you already spent trying to improve your skills?"). Both use raw column
+ * letters in FORM_QUESTIONS to disambiguate.
+ * ----------------------------------------------------------------------------
  */
 
 const CONFIG = {
 
-  // ---------------------------------------------------------------------------
-  // 1) Source sheet — must exist in the spreadsheet.
-  // ---------------------------------------------------------------------------
   DATA_SHEET: 'Lead Data',
 
-  // ---------------------------------------------------------------------------
-  // 2) Column mapping — field key → header text in row 1 of DATA_SHEET.
-  //
-  //    Matching order (resolveColumn in Code.gs):
-  //      1. EXACT case-insensitive match — the value here matches a header
-  //         character-for-character. Use this when headers are clean.
-  //      2. Case-insensitive "contains" — used as a fallback when no exact
-  //         match exists (e.g. value 'Date' matches header 'Created Date').
-  //      3. Column letter — if the value looks like 'A', 'AA' etc and no
-  //         header matched, treated as a literal column letter.
-  //
-  //    IMPORTANT: ambiguous short values like 'Ad' will EXACT-match a header
-  //    called "Ad" (column K) before falling back to contains-match. If your
-  //    header is actually "Ad Name", set `ad: 'Ad Name'` so it doesn't
-  //    contains-match "Ad Set" by accident.
-  //
-  //    Set a value to '' (empty string) to disable that field entirely.
-  // ---------------------------------------------------------------------------
   COLUMNS: {
-    date:         'Date',                // A — when the lead came in
+    date:         'Date',                // A
     name:         'Name',                // B
     email:        'Email',               // C
-    phone:        'Phone',               // D
-    leadCategory: 'Lead Category',       // E — Qualified / Unqualified / Junk
-    salesNotes:   'Sales Team Notes',    // F
-    saleRevenue:  'Sale Revenue',        // G — numeric, blank/0 = not closed
-    source:       'Source',              // H — Facebook, Google, IG, etc.
+    phone:        'Phone Number',        // D
+    leadCategory: 'Lead Category',       // E
+    salesNotes:   'Sales team notes',    // F
+    saleRevenue:  'Sale Revenue',        // G
+    source:       'Source',              // H
     campaign:     'Campaign',            // I
-    adSet:        'Ad Set',              // J
+    adSet:        'Ad set',              // J
     ad:           'Ad',                  // K
     pageVariant:  'Page Variant',        // L
     fbclid:       'Fbclid',              // M
 
     // ---- Creative-preview columns (used by the "Top Creatives" tab) ----
-    // Column V holds the Facebook ad-preview URL (the clickable link).
-    // Column W holds the Creative Preview Link — a direct, full-resolution
-    // image URL used as the thumbnail.
-    // Optional: adThumbnailFallback can point to a column that holds an
-    // =IMAGE("...") formula. If the primary thumbnailUrl fails to render
-    // (e.g. column W is a VIDEO URL the browser can't show in an <img>),
-    // the dashboard automatically falls back to the URL extracted from
-    // this column's =IMAGE() formula. Leave as '' to disable.
-    adPreviewUrl:        'V',            // V — Ad Preview Link
-    adThumbnailUrl:      'W',            // W — Creative Preview Link (direct image URL)
-    adThumbnailFallback: ''              // Optional: column with =IMAGE() formula (e.g. 'X')
+    // Column Y holds the clickable Facebook ad-preview URL.
+    // Column Z holds the Creative Preview Link — a direct image URL used
+    // as the thumbnail. For VIDEO creatives that URL isn't an <img>-able
+    // file, so we fall back to the =IMAGE rendering in column AA.
+    adPreviewUrl:        'Y',            // Y  — Ad Preview Link
+    adThumbnailUrl:      'Z',            // Z  — Creative Preview Link (direct image URL)
+    adThumbnailFallback: 'AA'            // AA — Ad Thumbnail (=IMAGE — used for video creatives)
   },
 
   // ---------------------------------------------------------------------------
-  // Lead-qualification rule lives in Qualification.gs (separate file so each
-  // client's "what counts as qualified?" logic is editable in one place).
+  // Lead-qualification rule lives in Qualification.gs.
   // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // 3) Brand — appears in the dialog header and as the chart accent.
-  // ---------------------------------------------------------------------------
   BRAND: {
     title:    'PX Insights',
-    subtitle: 'Funnel Quality & Ad Performance',
+    subtitle: 'MMT — Funnel Quality & Ad Performance',
     logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
     linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
-    accent:   '#FF2BD6',                             // Hot pink (PX brand)
-    accent2:  '#10B981',                             // Action green
-    bg:       '#0A0F1F',                             // Dialog background
-    card:     '#131B2E'                              // KPI card background
+    accent:   '#FF2BD6',
+    accent2:  '#10B981',
+    bg:       '#0A0F1F',
+    card:     '#131B2E'
   }
 };
 
 // =============================================================================
-// FORM_QUESTIONS — the open-ended questions to chart on the Form Insights tab.
+// FORM_QUESTIONS — MMT applicant intake, 11 questions in columns N → X.
 //
-// Each object:
-//   header  (string)  Header text in the data sheet (case-insensitive contains).
-//                     Leave alone if you don't know — Code.gs will look up the
-//                     exact column at runtime.
-//   label   (string)  Short label shown above the chart.
-//   type    'choice' | 'text'
-//                     'choice' → bar chart of the most common answers
-//                     'text'   → top words list (mini word cloud)
-//   topN    (number)  How many bars/words to render. Default 10.
-//
-// To add a question for a new client: append a new object. To remove one:
-// delete its entry. No other file needs to change.
+// Q4 (col Q) and Q11 (col X) share the same header text — both use raw column
+// letters so resolveColumn picks the right column directly.
 // =============================================================================
 
 const FORM_QUESTIONS = [
-  {
-    header: 'How long have you been struggling with your weight?',
-    label:  'Struggle Duration',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Are you currently diabetic?',
-    label:  'Diabetic',
-    type:   'choice',
-    topN:   6
-  },
-  {
-    header: 'How much weight are you looking to lose?',
-    label:  'Weight to Lose',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'biggest motivation',
-    label:  'Motivation',
-    type:   'text',
-    topN:   20
-  },
-  {
-    header: 'When would you look at getting started?',
-    label:  'Start Timing',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Anything else you would like to tell us',
-    label:  'Other Notes',
-    type:   'text',
-    topN:   25
-  }
+  { header: 'How long have you been a therapist',                                      label: 'Therapist Tenure',          type: 'choice', topN:  8 },
+  { header: 'actively looking to enhance your skills',                                  label: 'Skill Enhancement',         type: 'choice', topN:  6 },
+  { header: 'Why do you want to learn bodywork',                                        label: 'Why MMT',                   type: 'text',   topN: 25 },
+  { header: 'Q',                                                                        label: 'Money Spent on Skills',     type: 'choice', topN:  8 },
+  { header: 'How would you like to get your MMT Certification',                         label: 'Certification Path',        type: 'choice', topN:  8 },
+  { header: '$1,000 scholarship',                                                       label: 'Scholarship Impact',        type: 'text',   topN: 25 },
+  { header: 'ability to join the program in the next 30 days',                         label: '30-Day Start Readiness',    type: 'choice', topN:  6 },
+  { header: 'Cash Collected',                                                           label: 'Cash Collected',            type: 'choice', topN: 10 },
+  { header: 'How many patients are you currently seeing per week',                     label: 'Patients Per Week',         type: 'choice', topN:  8 },
+  { header: 'currently have any qualification and certifications',                     label: 'Existing Certifications',   type: 'choice', topN:  8 },
+  { header: 'X',                                                                        label: 'Money Spent on Skills (alt)', type: 'choice', topN:  8 }
 ];
