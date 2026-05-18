@@ -139,5 +139,17 @@ const FORM_QUESTIONS = [
     label:  'Other Notes',
     type:   'text',
     topN:   25
+  },
+  {
+    header: 'discuss surgical options',                // matches col T question
+    label:  'Surgical Interest',
+    type:   'choice',
+    topN:   6
+  },
+  {
+    header: 'What state do you live in',               // col U
+    label:  'State',
+    type:   'choice',
+    topN:   15
   }
 ];
