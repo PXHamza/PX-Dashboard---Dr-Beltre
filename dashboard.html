@@ -1087,7 +1087,7 @@ const METRIC_LABELS = {
 function paintTopCreatives(all) {
   const root = document.getElementById('topCreativesGrid');
   if (!all || !all.length) {
-    root.innerHTML = '<div class="empty">No creatives to show. Make sure column T has the ad preview link and column U has the thumbnail (an =IMAGE() formula).</div>';
+    root.innerHTML = '<div class="empty">No ads matched the current filters.</div>';
     return;
   }
   const metric = document.getElementById('creativesMetric').value || 'leads';
@@ -1111,7 +1111,7 @@ function paintTopCreatives(all) {
       ? '<img src="' + escapeAttr(primarySrc) + '"' +
         (altSrc ? ' data-fallback="' + escapeAttr(altSrc) + '"' : '') +
         ' alt="" loading="lazy" referrerpolicy="no-referrer">'
-      : '<div class="thumb-fallback">No thumbnail</div>';
+      : '<div class="thumb-fallback">No preview available</div>';
     const thumbWrap = url
       ? '<a class="thumb" href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">' + thumbInner + '</a>'
       : '<div class="thumb">' + thumbInner + '</div>';
