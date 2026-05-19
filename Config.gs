@@ -5,144 +5,86 @@
  * Three things to look at:
  *   1) CONFIG.DATA_SHEET    — the tab that holds the raw lead rows.
  *   2) CONFIG.COLUMNS       — map dashboard fields to the client's column
- *                             headers (case-insensitive). If a header is
- *                             renamed or moves, just update the mapping —
- *                             you never need to touch column letters.
+ *                             headers (case-insensitive).
  *   3) FORM_QUESTIONS       — the open-ended form questions to chart in the
- *                             "Form Insights" tab. Add / remove / reword
- *                             freely, then re-open the dashboard.
+ *                             "Form Insights" tab.
  *
- * Everything else (KPI math, charts, layout) reads from this file via
- * field keys, so a column move or a rename never breaks the dashboard.
+ * ----------------------------------------------------------------------------
+ * ATTIC CONSTRUCTION — column layout. Attic's sheet has no form questions
+ * but does carry several extra CRM-tracking columns (Location, Funnel Type,
+ * Score, Category, verified/confirmed, Booking Requested) which the
+ * dashboard doesn't visualise directly. The standard fields are interleaved
+ * with these extras:
+ *
+ *   A  Date                       J  Source                   R  Verified / Confirmed (-)
+ *   B  Name                       K  Campaign                 S  Booking Requested (-)
+ *   C  Email                      L  Ad set                   T  Ad Preview Link
+ *   D  Phone Number               M  Ad                       U  Creative Preview Link
+ *   E  Lead Category              N  Page Variant             V  Ad Thumbnail (=IMAGE)
+ *   F  Location (-)               O  Fbclid
+ *   G  Funnel Type (-)            P  Score (-)
+ *   H  Sales team notes           Q  Category (-)
+ *   I  Sale Revenue
+ *
+ * Columns marked (-) are CRM-side trackers the dashboard ignores. R counts
+ * bookings confirmed and S counts call bookings — both are derived metrics
+ * the sales team uses, not fields the dashboard visualises.
+ * ----------------------------------------------------------------------------
  */
 
 const CONFIG = {
 
-  // ---------------------------------------------------------------------------
-  // 1) Source sheet — must exist in the spreadsheet.
-  // ---------------------------------------------------------------------------
   DATA_SHEET: 'Lead Data',
 
-  // ---------------------------------------------------------------------------
-  // 2) Column mapping — field key → header text in row 1 of DATA_SHEET.
-  //
-  //    Matching order (resolveColumn in Code.gs):
-  //      1. EXACT case-insensitive match — the value here matches a header
-  //         character-for-character. Use this when headers are clean.
-  //      2. Case-insensitive "contains" — used as a fallback when no exact
-  //         match exists (e.g. value 'Date' matches header 'Created Date').
-  //      3. Column letter — if the value looks like 'A', 'AA' etc and no
-  //         header matched, treated as a literal column letter.
-  //
-  //    IMPORTANT: ambiguous short values like 'Ad' will EXACT-match a header
-  //    called "Ad" (column K) before falling back to contains-match. If your
-  //    header is actually "Ad Name", set `ad: 'Ad Name'` so it doesn't
-  //    contains-match "Ad Set" by accident.
-  //
-  //    Set a value to '' (empty string) to disable that field entirely.
-  // ---------------------------------------------------------------------------
   COLUMNS: {
-    date:         'Date',                // A — when the lead came in
+    date:         'Date',                // A
     name:         'Name',                // B
     email:        'Email',               // C
-    phone:        'Phone',               // D
-    leadCategory: 'Lead Category',       // E — Qualified / Unqualified / Junk
-    salesNotes:   'Sales Team Notes',    // F
-    saleRevenue:  'Sale Revenue',        // G — numeric, blank/0 = not closed
-    source:       'Source',              // H — Facebook, Google, IG, etc.
-    campaign:     'Campaign',            // I
-    adSet:        'Ad Set',              // J
-    ad:           'Ad',                  // K
-    pageVariant:  'Page Variant',        // L
-    fbclid:       'Fbclid',              // M
+    phone:        'Phone Number',        // D
+    leadCategory: 'Lead Category',       // E
+    salesNotes:   'Sales team notes',    // H  (Location at F, Funnel Type at G — unused)
+    saleRevenue:  'Sale Revenue',        // I
+    source:       'Source',              // J
+    campaign:     'Campaign',            // K
+    adSet:        'Ad set',              // L
+    ad:           'Ad',                  // M
+    pageVariant:  'Page Variant',        // N
+    fbclid:       'Fbclid',              // O
 
     // ---- Creative-preview columns (used by the "Top Creatives" tab) ----
-    // Column V holds the Facebook ad-preview URL (the clickable link).
-    // Column W holds the Creative Preview Link — a direct, full-resolution
-    // image URL used as the thumbnail.
-    // Optional: adThumbnailFallback can point to a column that holds an
-    // =IMAGE("...") formula. If the primary thumbnailUrl fails to render
-    // (e.g. column W is a VIDEO URL the browser can't show in an <img>),
-    // the dashboard automatically falls back to the URL extracted from
-    // this column's =IMAGE() formula. Leave as '' to disable.
-    adPreviewUrl:        'V',            // V — Ad Preview Link
-    adThumbnailUrl:      'W',            // W — Creative Preview Link (direct image URL)
-    adThumbnailFallback: ''              // Optional: column with =IMAGE() formula (e.g. 'X')
+    // Column T holds the clickable Facebook ad-preview URL.
+    // Column U holds the Creative Preview Link — a direct image URL used
+    // as the thumbnail. For VIDEO creatives that URL isn't an <img>-able
+    // file, so we fall back to the =IMAGE rendering in column V.
+    adPreviewUrl:        'T',            // T — Ad Preview Link
+    adThumbnailUrl:      'U',            // U — Creative Preview Link (direct image URL)
+    adThumbnailFallback: 'V'             // V — Ad Thumbnail (=IMAGE — used for video creatives)
   },
 
   // ---------------------------------------------------------------------------
-  // Lead-qualification rule lives in Qualification.gs (separate file so each
-  // client's "what counts as qualified?" logic is editable in one place).
+  // Lead-qualification rule lives in Qualification.gs.
   // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // 3) Brand — appears in the dialog header and as the chart accent.
-  // ---------------------------------------------------------------------------
   BRAND: {
     title:    'PX Insights',
-    subtitle: 'Funnel Quality & Ad Performance',
+    subtitle: 'Attic Construction — Funnel Quality & Ad Performance',
     logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
     linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
-    accent:   '#FF2BD6',                             // Hot pink (PX brand)
-    accent2:  '#10B981',                             // Action green
-    bg:       '#0A0F1F',                             // Dialog background
-    card:     '#131B2E'                              // KPI card background
+    accent:   '#FF2BD6',
+    accent2:  '#10B981',
+    bg:       '#0A0F1F',
+    card:     '#131B2E'
   }
 };
 
 // =============================================================================
-// FORM_QUESTIONS — the open-ended questions to chart on the Form Insights tab.
+// FORM_QUESTIONS — Attic Construction's intake has no open-ended form
+// questions to chart, so this list is empty. The Form Insights tab will
+// render its own "No form questions configured" empty state.
 //
-// Each object:
-//   header  (string)  Header text in the data sheet (case-insensitive contains).
-//                     Leave alone if you don't know — Code.gs will look up the
-//                     exact column at runtime.
-//   label   (string)  Short label shown above the chart.
-//   type    'choice' | 'text'
-//                     'choice' → bar chart of the most common answers
-//                     'text'   → top words list (mini word cloud)
-//   topN    (number)  How many bars/words to render. Default 10.
-//
-// To add a question for a new client: append a new object. To remove one:
-// delete its entry. No other file needs to change.
+// If Attic adds form questions later, append entries here in the standard
+// shape — see other client branches for examples.
 // =============================================================================
 
-const FORM_QUESTIONS = [
-  {
-    header: 'How long have you been struggling with your weight?',
-    label:  'Struggle Duration',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Are you currently diabetic?',
-    label:  'Diabetic',
-    type:   'choice',
-    topN:   6
-  },
-  {
-    header: 'How much weight are you looking to lose?',
-    label:  'Weight to Lose',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'biggest motivation',
-    label:  'Motivation',
-    type:   'text',
-    topN:   20
-  },
-  {
-    header: 'When would you look at getting started?',
-    label:  'Start Timing',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Anything else you would like to tell us',
-    label:  'Other Notes',
-    type:   'text',
-    topN:   25
-  }
-];
+const FORM_QUESTIONS = [];

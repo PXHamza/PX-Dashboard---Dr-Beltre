@@ -1,50 +1,42 @@
 /**
- * Stages.gs — per-client pipeline stages for the "Funnel Stages" tab.
+ * Stages.gs — Attic Construction pipeline stages for the "Funnel Stages" tab.
  *
- * Every client's CRM has a different set of stages (a SaaS funnel looks
- * nothing like a construction-quote funnel). Defining them once here keeps
- * the dashboard layout fixed while making each client's stages a single
- * file edit.
+ * Ordered as the client supplied them. The dashboard preserves this order in
+ * the distribution chart and breakdown table.
  *
- * STAGES is an ordered array — roughly the order leads progress through
- * the pipeline. The dashboard preserves this order in the distribution
- * chart and the breakdown table.
+ * Notes:
+ *   - "Qualified (verified / confirmed)" and "Not Qualified" both contain
+ *     the substring "qualified". Match keywords are distinctive enough that
+ *     they don't collide:
+ *       Qualified (...) uses 'qualified (verified', 'verified / confirmed'
+ *       Not Qualified uses 'not qualified'
+ *   - "Inquired / Not Booked" uses several aliases so the dashboard still
+ *     classifies it correctly if sales abbreviates the label.
  *
- * Each stage object:
- *   name      (string, required)  Display label.
- *   match     (string[], required) Case-insensitive substring keywords
- *                                  that classify a raw Lead Category into
- *                                  this stage. First STAGES entry whose
- *                                  match hits wins — so put more specific
- *                                  variants (e.g. "Unqualified (Post Call)")
- *                                  BEFORE the broad version ("Unqualified").
- *   terminal  (boolean, optional) Dead-end / branch state. Excluded from
- *                                  the "active in pipeline" count.
- *   won       (boolean, optional) Counts toward the win rate. Also implies
- *                                  terminal.
- *   lost      (boolean, optional) Counts toward the lost bucket. Also
- *                                  implies terminal.
- *
- * To deploy on a new client: replace the STAGES list with their CRM stages
- * in the order they appear. Nothing else changes.
+ * Terminal flags:
+ *   - Not Qualified — only stage that disqualifies (see Qualification.gs).
+ *   - Deal Won — won.
+ *   - Deal Lost — lost.
  */
 
 const STAGES = [
-  { name: 'New Lead',         match: ['new lead']                                 },
-  { name: 'Tried Contacting', match: ['tried contacting', 'attempted']            },
-  { name: 'Booked Call',      match: ['booked call', 'booked', 'scheduled']       },
-  { name: 'Showed Up',        match: ['showed up', 'showed', 'completed call']    },
-  { name: 'Qualified',        match: ['qualified']                                },
-  { name: 'Unqualified',      match: ['unqualified'],   terminal: true            },
-  { name: 'Closed Won',       match: ['closed won', 'won'],  won:  true, terminal: true },
-  { name: 'Closed Lost',      match: ['closed lost', 'lost'], lost: true, terminal: true }
+  { name: 'New Lead',                          match: ['new lead']                                              },
+  { name: 'Inquired / Not Booked',             match: ['inquired / not booked',
+                                                       'inquired',
+                                                       'not booked']                                            },
+  { name: 'Booking Requested',                 match: ['booking requested']                                     },
+  { name: 'Qualified (verified / confirmed)',  match: ['qualified (verified',
+                                                       'verified / confirmed',
+                                                       'verified']                                              },
+  { name: 'Not Qualified',                     match: ['not qualified'],            terminal: true              },
+  { name: 'Inspection Booked',                 match: ['inspection booked']                                     },
+  { name: 'Deal Lost',                         match: ['deal lost'], lost: true,    terminal: true              },
+  { name: 'Deal Won',                          match: ['deal won'],  won:  true,    terminal: true              }
 ];
 
 /**
  * Map a raw lead-category value to one of the configured stage names.
- * Returns 'Other' if nothing matches — those leads show up in a separate
- * "Unmatched" bucket on the dashboard so a typo in the source data is
- * immediately visible.
+ * Returns 'Other' if nothing matches.
  */
 function classifyStage(rawCategory) {
   const s = (rawCategory == null ? '' : rawCategory.toString()).toLowerCase().trim();
