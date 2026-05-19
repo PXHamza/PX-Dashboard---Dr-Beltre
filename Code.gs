@@ -667,17 +667,33 @@ function topCreatives(rows) {
       out[k] = {
         ad: r.ad, campaign: r.campaign || '—', adSet: r.adSet || '—',
         leads: 0, qualified: 0, sales: 0, revenue: 0,
-        previewUrl: '', thumbnailUrl: '', thumbnailUrlFallback: ''
+        previewUrl: '', thumbnailUrl: '', thumbnailUrlFallback: '',
+        _latestDate: null
       };
     }
     out[k].leads++;
     if (r.qualified)   out[k].qualified++;
     if (r.revenue > 0) out[k].sales++;
     out[k].revenue += r.revenue || 0;
-    if (!out[k].previewUrl   && r.adPreviewUrl)   out[k].previewUrl   = r.adPreviewUrl;
-    if (!out[k].thumbnailUrl && r.adThumbnailUrl) out[k].thumbnailUrl = r.adThumbnailUrl;
-    if (!out[k].thumbnailUrlFallback && r.adThumbnailUrlFallback) {
-      out[k].thumbnailUrlFallback = r.adThumbnailUrlFallback;
+
+    // Pull preview / thumbnail URLs from the MOST RECENT row for this ad.
+    // Older entries often have stale or expired creative URLs; the latest
+    // row reflects what the ad is currently showing. We always overwrite
+    // (even when the latest row has blank URLs) so the card honestly
+    // surfaces "No preview available" instead of an outdated image.
+    if (r.date) {
+      if (!out[k]._latestDate || r.date > out[k]._latestDate) {
+        out[k]._latestDate           = r.date;
+        out[k].previewUrl            = r.adPreviewUrl           || '';
+        out[k].thumbnailUrl          = r.adThumbnailUrl         || '';
+        out[k].thumbnailUrlFallback  = r.adThumbnailUrlFallback || '';
+      }
+    } else if (!out[k]._latestDate) {
+      // No dates anywhere — fall back to first-non-empty wins so we don't
+      // strand creatives that lack date data entirely.
+      if (!out[k].previewUrl           && r.adPreviewUrl)           out[k].previewUrl           = r.adPreviewUrl;
+      if (!out[k].thumbnailUrl         && r.adThumbnailUrl)         out[k].thumbnailUrl         = r.adThumbnailUrl;
+      if (!out[k].thumbnailUrlFallback && r.adThumbnailUrlFallback) out[k].thumbnailUrlFallback = r.adThumbnailUrlFallback;
     }
   });
   return Object.keys(out).map(function (k) {
@@ -693,9 +709,9 @@ function topCreatives(rows) {
       thumbnailUrlFallback: o.thumbnailUrlFallback
     };
   })
-  // Treat a row as showable if it has ANY of: preview URL, primary
-  // thumbnail, or fallback thumbnail.
-  .filter(function (c) { return c.previewUrl || c.thumbnailUrl || c.thumbnailUrlFallback; })
+  // No URL filter — EVERY aggregated ad ships to the client, even those
+  // without a preview link or thumbnail. The client renders a clean
+  // "No preview available" placeholder when both URLs are blank.
   .sort(function (a, b) { return b.leads - a.leads || b.revenue - a.revenue; })
   .slice(0, 30);
 }
