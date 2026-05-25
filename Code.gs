@@ -156,8 +156,19 @@ function loadAllRows() {
     const name    = colIdx.name         ? str(r[colIdx.name - 1])                 : '';
     const phone   = colIdx.phone        ? str(r[colIdx.phone - 1])                : '';
     const rawCat  = colIdx.leadCategory ? str(r[colIdx.leadCategory - 1])         : '';
-    const cls     = classifyLead(rawCat);                          // from Qualification.gs
-    const stage   = classifyStage(rawCat);                         // from Stages.gs
+    // formAnswers is built FIRST so we can pass it as context into
+    // classifyLead — per-client Qualification.gs may use form-answer
+    // values (e.g. PX disqualifies leads whose Yearly Revenue answer
+    // is "Under $1M"). Passing an extra arg is backwards-compatible:
+    // older Qualification.gs implementations that only declare one
+    // parameter silently ignore the second one.
+    const formAnswers = {};
+    formColIdx.forEach(function (fc) {
+      formAnswers[fc.q.label] = fc.col ? str(r[fc.col - 1]) : '';
+    });
+    const ctx     = { formAnswers: formAnswers };
+    const cls     = classifyLead(rawCat, ctx);                     // from Qualification.gs
+    const stage   = classifyStage(rawCat, ctx);                    // from Stages.gs
     const notes   = colIdx.salesNotes   ? str(r[colIdx.salesNotes - 1])           : '';
     const revenue = colIdx.saleRevenue  ? num(r[colIdx.saleRevenue - 1])          : 0;
     const source  = colIdx.source       ? str(r[colIdx.source - 1])               : '';
@@ -189,11 +200,6 @@ function loadAllRows() {
     }
     const adThumbnailUrl         = extractThumbUrl(colIdx.adThumbnailUrl);
     const adThumbnailUrlFallback = extractThumbUrl(colIdx.adThumbnailFallback);
-
-    const formAnswers = {};
-    formColIdx.forEach(function (fc) {
-      formAnswers[fc.q.label] = fc.col ? str(r[fc.col - 1]) : '';
-    });
 
     if (date) {
       if (!dateMin || date < dateMin) dateMin = date;
