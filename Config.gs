@@ -114,5 +114,12 @@ const FORM_QUESTIONS = [
   { header: 'Where can you service?',                                                  label: 'Service Area',           type: 'choice', topN: 12 },
   { header: 'Where can you service? (Other)',                                          label: 'Service Area — Other',   type: 'text',   topN: 20 },
   { header: 'When do you need more qualified leads?',                                  label: 'Lead Urgency',           type: 'choice', topN:  8 },
-  { header: 'what else do i need to know about your business',                         label: 'Anything Else',          type: 'text',   topN: 30 }
+  { header: 'what else do i need to know about your business',                         label: 'Anything Else',          type: 'text',   topN: 30 },
+  // ---- New columns (AB, AC) ----
+  // The "Yearly Revenue" label below is referenced by name in
+  // Qualification.gs: any lead whose answer is "Under $1M" is treated as
+  // unqualified regardless of Lead Category. Keep this label stable —
+  // if you change the label here, update Qualification.gs to match.
+  { header: 'What is your average yearly revenue',                                     label: 'Yearly Revenue',         type: 'choice', topN:  8 },
+  { header: 're-invest 10%',                                                            label: 'Marketing Reinvestment', type: 'choice', topN:  6 }
 ];

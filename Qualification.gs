@@ -1,14 +1,24 @@
 /**
  * Qualification.gs — PX lead-qualification rule.
  *
- * A lead is considered UNQUALIFIED if its Lead Category is either:
- *   - "Unqualified | After The Call"   (caught by the 'unqualified' keyword)
- *   - "Not A Fit | Application Cancelled" (caught by the 'not a fit' keyword)
+ * A lead is considered UNQUALIFIED if EITHER of the following is true:
  *
- * Every other stage — including Filled In Form Didn't Book, Booked
- * Strategy Session, No RSVP - Cancelled, Call #1/#2/#3, No Show,
- * Qualified | Not Ready, Contract Sent, Lost, Won, and Paid — counts as
- * QUALIFIED.
+ *   1) Its Lead Category contains:
+ *        - "Unqualified | After The Call"   (caught by 'unqualified')
+ *        - "Not A Fit | Application Cancelled" (caught by 'not a fit')
+ *
+ *   2) Its form answer to "What is your average yearly revenue?" (col AB)
+ *      is "Under $1M". A business below that revenue threshold isn't
+ *      a fit for PX regardless of how far they got in the funnel.
+ *
+ * Every other combination — including Filled In Form Didn't Book, Booked
+ * Strategy Session, No RSVP, Call #1/#2/#3, No Show, Qualified | Not Ready,
+ * Contract Sent, Lost, Won, and Paid — counts as QUALIFIED.
+ *
+ * Both functions accept an optional `ctx` second argument that Code.gs
+ * passes with the row's form answers. The qualification logic taps into
+ * ctx.formAnswers['Yearly Revenue'] (the label set in Config.gs's
+ * FORM_QUESTIONS) to apply the revenue-floor rule.
  */
 
 const QUALIFICATION = {
@@ -29,18 +39,46 @@ const QUALIFICATION = {
     'junk',
     'spam',
     'fake'
+  ],
+
+  /**
+   * Form-answer disqualifiers. The label key must match a FORM_QUESTIONS
+   * entry in Config.gs. The match keywords are substring-compared against
+   * the form answer value (case-insensitive).
+   *
+   * For PX: the Yearly Revenue question (col AB) disqualifies on "Under $1M".
+   */
+  FORM_DISQUALIFIERS: [
+    { label: 'Yearly Revenue', match: ['under $1m', 'under 1m', 'under $1 million'] }
   ]
 };
 
 /**
- * Returns true iff the raw category indicates a qualified lead.
- * Empty / blank category counts as NOT qualified (we can't assume anything).
+ * Helper: does any form answer in `formAnswers` trip a FORM_DISQUALIFIERS rule?
  */
-function isQualified(rawCategory) {
+function _hasFormDisqualifier(formAnswers) {
+  if (!formAnswers) return false;
+  for (let i = 0; i < QUALIFICATION.FORM_DISQUALIFIERS.length; i++) {
+    const rule = QUALIFICATION.FORM_DISQUALIFIERS[i];
+    const answer = (formAnswers[rule.label] || '').toString().toLowerCase().trim();
+    if (!answer) continue;
+    for (let j = 0; j < rule.match.length; j++) {
+      if (answer.indexOf(rule.match[j].toLowerCase()) !== -1) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Returns true iff the raw category + form answers indicate a qualified lead.
+ * Empty / blank category counts as NOT qualified.
+ */
+function isQualified(rawCategory, ctx) {
   const s = (rawCategory == null ? '' : rawCategory.toString()).toLowerCase().trim();
   if (!s) return false;
   if (QUALIFICATION.JUNK_KEYWORDS.some(function (k) { return s.indexOf(k) !== -1; })) return false;
   if (QUALIFICATION.DISQUALIFYING_KEYWORDS.some(function (k) { return s.indexOf(k) !== -1; })) return false;
+  if (ctx && _hasFormDisqualifier(ctx.formAnswers)) return false;
   return true;
 }
 
@@ -48,7 +86,7 @@ function isQualified(rawCategory) {
  * Classify a lead for the donut / breakdown chart.
  *   { qualified: boolean, bucket: 'Qualified'|'Unqualified'|'Junk'|'Unknown' }
  */
-function classifyLead(rawCategory) {
+function classifyLead(rawCategory, ctx) {
   const raw = (rawCategory == null ? '' : rawCategory.toString()).trim();
   const s = raw.toLowerCase();
 
@@ -58,6 +96,11 @@ function classifyLead(rawCategory) {
     return { qualified: false, bucket: 'Junk' };
   }
   if (QUALIFICATION.DISQUALIFYING_KEYWORDS.some(function (k) { return s.indexOf(k) !== -1; })) {
+    return { qualified: false, bucket: 'Unqualified' };
+  }
+  if (ctx && _hasFormDisqualifier(ctx.formAnswers)) {
+    // Form-answer-based disqualification — bucketed as "Unqualified" on
+    // the donut so it counts visually with the other unqualified leads.
     return { qualified: false, bucket: 'Unqualified' };
   }
   return { qualified: true, bucket: 'Qualified' };
