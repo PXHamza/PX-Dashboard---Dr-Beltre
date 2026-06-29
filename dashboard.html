@@ -259,14 +259,14 @@
   </div>
 </div>
 
-<!-- ===== Second filter row: Campaign / Ad Set / Ad / Page Variant ===== -->
+<!-- ===== Second filter row: Campaign ID / Ad Set ID / Ad ID / Page Variant ===== -->
 <div class="filter-row-2 active">
-  <label>Campaign</label>
-  <select id="campaignFilter"><option value="">All Campaigns</option></select>
-  <label>Ad Set</label>
-  <select id="adSetFilter"><option value="">All Ad Sets</option></select>
-  <label>Ad</label>
-  <select id="adFilter"><option value="">All Ads</option></select>
+  <label>Campaign ID</label>
+  <select id="campaignFilter"><option value="">All Campaign IDs</option></select>
+  <label>Ad Set ID</label>
+  <select id="adSetFilter"><option value="">All Ad Set IDs</option></select>
+  <label>Ad ID</label>
+  <select id="adFilter"><option value="">All Ad IDs</option></select>
   <label>Page Variant</label>
   <select id="variantFilter"><option value="">All Variants</option></select>
   <button class="btn" id="clearFilters">Clear</button>
@@ -305,8 +305,8 @@
       </div>
     </div>
     <div class="panel" style="margin-top: 16px;">
-      <h3>Quality Breakdown by Campaign</h3>
-      <div class="sub">Top 10 campaigns. Each bar = 100% of that campaign's leads.</div>
+      <h3>Quality Breakdown by Campaign ID</h3>
+      <div class="sub">Top 10 Campaign IDs. Each bar = 100% of that campaign's leads.</div>
       <div class="chart-wrap"><canvas id="chartByCampaign"></canvas></div>
     </div>
   </div>
@@ -405,15 +405,15 @@
   <div class="pane" id="pane-errors">
     <div class="grid grid-4" id="errorKpis" style="margin-bottom: 16px;"></div>
     <div class="grid grid-2">
-      <div class="panel"><h3>Leads with no campaign tagged</h3>
+      <div class="panel"><h3>Leads with no Campaign ID tagged</h3>
         <div class="sub">Showing up to 25 most recent.</div>
         <div id="noCampaignTable"></div>
       </div>
-      <div class="panel"><h3>Leads with no ad set tagged</h3>
+      <div class="panel"><h3>Leads with no Ad Set ID tagged</h3>
         <div class="sub">Showing up to 25 most recent.</div>
         <div id="noAdSetTable"></div>
       </div>
-      <div class="panel"><h3>Leads with no ad tagged</h3>
+      <div class="panel"><h3>Leads with no Ad ID tagged</h3>
         <div class="sub">Showing up to 25 most recent.</div>
         <div id="noAdTable"></div>
       </div>
@@ -570,9 +570,9 @@ function render(p) {
 
   // Tables — cheap to paint up front. Column labels mirror the rollup hierarchy
   // (parents on the left in muted colour, the leaf name highlighted on the right).
-  paintRollupTable('campaignTable', p.campaignTable,    ['Campaign']);
-  paintRollupTable('adSetTable',    p.adSetTable,       ['Campaign', 'Ad Set']);
-  paintRollupTable('adTable',       p.adTable,          ['Campaign', 'Ad Set', 'Ad']);
+  paintRollupTable('campaignTable', p.campaignTable,    ['Campaign ID']);
+  paintRollupTable('adSetTable',    p.adSetTable,       ['Campaign ID', 'Ad Set ID']);
+  paintRollupTable('adTable',       p.adTable,          ['Campaign ID', 'Ad Set ID', 'Ad ID']);
   paintRollupTable('variantTable',  p.pageVariantTable, ['Variant']);
   paintErrors(p.errors);
   paintAlerts(p.alerts);
@@ -641,7 +641,7 @@ function populateFilters(opts) {
   const ad      = document.getElementById('adFilter');
   const variant = document.getElementById('variantFilter');
 
-  fillSelect(camp,    opts.campaigns,    'All Campaigns', camp.value);
+  fillSelect(camp,    opts.campaigns,    'All Campaign IDs', camp.value);
   fillSelect(variant, opts.pageVariants, 'All Variants',  variant.value);
 
   refreshCascade(opts);  // populates ad-set and ad based on currently-selected campaign / ad set
@@ -664,7 +664,7 @@ function refreshCascade(opts) {
     });
     adSetVals = Object.keys(merged).sort();
   }
-  fillSelect(adSetEl, adSetVals, 'All Ad Sets', adSetVals.indexOf(adSet) >= 0 ? adSet : '');
+  fillSelect(adSetEl, adSetVals, 'All Ad Set IDs', adSetVals.indexOf(adSet) >= 0 ? adSet : '');
 
   // Ads — limited to (campaign, adSet) if both chosen, else flattened.
   const adEl   = document.getElementById('adFilter');
@@ -681,7 +681,7 @@ function refreshCascade(opts) {
     });
     adVals = Object.keys(merged).sort();
   }
-  fillSelect(adEl, adVals, 'All Ads', adVals.indexOf(curAd) >= 0 ? curAd : '');
+  fillSelect(adEl, adVals, 'All Ad IDs', adVals.indexOf(curAd) >= 0 ? curAd : '');
 }
 
 function fillSelect(el, values, allLabel, preserve) {
@@ -931,11 +931,11 @@ function sortRollupRows(rows, key, dir) {
 // drop in coverage usually means a tagging / UTM issue upstream.
 function paintErrors(e) {
   document.getElementById('errorKpis').innerHTML = [
-    { color: 'green', label: 'Campaign Coverage', value: fmt.pct(e.campaignCoverage),
+    { color: 'green', label: 'Campaign ID Coverage', value: fmt.pct(e.campaignCoverage),
       meta: fmt.int(e.haveCampaign) + ' of ' + fmt.int(e.total) + ' leads tagged' },
-    { color: 'blue',  label: 'Ad Set Coverage',   value: fmt.pct(e.adSetCoverage),
+    { color: 'blue',  label: 'Ad Set ID Coverage',   value: fmt.pct(e.adSetCoverage),
       meta: fmt.int(e.haveAdSet) + ' of ' + fmt.int(e.total) + ' leads tagged' },
-    { color: 'pink',  label: 'Ad Coverage',       value: fmt.pct(e.adCoverage),
+    { color: 'pink',  label: 'Ad ID Coverage',       value: fmt.pct(e.adCoverage),
       meta: fmt.int(e.haveAd) + ' of ' + fmt.int(e.total) + ' leads tagged' },
     { color: 'amber', label: 'fbclid Coverage',   value: fmt.pct(e.fbclidCoverage),
       meta: fmt.int(e.withFbclid) + ' of ' + fmt.int(e.fbLeads) + ' FB leads' }
@@ -1244,7 +1244,7 @@ function paintAlerts(a) {
   document.getElementById('underperformingTable').innerHTML = !u.length
     ? '<div class="empty">All campaigns above thresholds. ✅</div>'
     : '<div class="table-scroll"><table><thead><tr>' +
-      '<th>Campaign</th><th class="num">Leads</th><th class="num">Qual %</th><th class="num">Rev / Lead</th><th>Reason</th>' +
+      '<th>Campaign ID</th><th class="num">Leads</th><th class="num">Qual %</th><th class="num">Rev / Lead</th><th>Reason</th>' +
       '</tr></thead><tbody>' +
       u.map(r => '<tr>' +
         '<td>' + escapeHtml(r.campaign) + '</td>' +
@@ -1261,7 +1261,7 @@ function paintAlertLeadTable(elId, rows) {
     return;
   }
   document.getElementById(elId).innerHTML = '<div class="table-scroll"><table><thead><tr>' +
-    '<th>Row</th><th>Date</th><th>Name</th><th>Email</th><th>Status</th><th>Campaign</th><th>Reason</th>' +
+    '<th>Row</th><th>Date</th><th>Name</th><th>Email</th><th>Status</th><th>Campaign ID</th><th>Reason</th>' +
     '</tr></thead><tbody>' +
     rows.map(r => '<tr>' +
       '<td><span class="row-link">#' + r.rowId + '</span></td>' +
