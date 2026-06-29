@@ -68,9 +68,9 @@ const CONFIG = {
     salesNotes:   'Sales team notes',    // G
     saleRevenue:  'Sale Revenue',        // H
     source:       'Source',              // I
-    campaign:     'Campaign',            // J
-    adSet:        'Ad set',              // K
-    ad:           'Ad',                  // L
+    campaign:     'Campaign ID',         // J — was 'Campaign'
+    adSet:        'Ad Set ID',           // K — was 'Ad set'
+    ad:           'Ad ID',               // L — was 'Ad'
     pageVariant:  'Page Variant',        // M
     fbclid:       'Fbclid',              // N
 
