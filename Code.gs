@@ -563,11 +563,11 @@ function computeErrors(rows) {
     // table so the user can jump to the actual row in the sheet.
     samples: {
       noCampaign: rows.filter(function (r) { return !r.campaign; }).slice(0, 25)
-                       .map(function (r) { return slimRow(r, 'No campaign tagged'); }),
+                       .map(function (r) { return slimRow(r, 'No Campaign ID tagged'); }),
       noAdSet:    rows.filter(function (r) { return !r.adSet;    }).slice(0, 25)
-                       .map(function (r) { return slimRow(r, 'No ad set tagged'); }),
+                       .map(function (r) { return slimRow(r, 'No Ad Set ID tagged'); }),
       noAd:       rows.filter(function (r) { return !r.ad;       }).slice(0, 25)
-                       .map(function (r) { return slimRow(r, 'No ad tagged'); }),
+                       .map(function (r) { return slimRow(r, 'No Ad ID tagged'); }),
       noFbclid:   fb.filter(function (r) { return !r.fbclid;     }).slice(0, 25)
                        .map(function (r) { return slimRow(r, 'No fbclid (pixel/CAPI gap)'); })
     }
