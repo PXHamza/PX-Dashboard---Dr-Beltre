@@ -156,8 +156,19 @@ function loadAllRows() {
     const name    = colIdx.name         ? str(r[colIdx.name - 1])                 : '';
     const phone   = colIdx.phone        ? str(r[colIdx.phone - 1])                : '';
     const rawCat  = colIdx.leadCategory ? str(r[colIdx.leadCategory - 1])         : '';
-    const cls     = classifyLead(rawCat);                          // from Qualification.gs
-    const stage   = classifyStage(rawCat);                         // from Stages.gs
+    // formAnswers is built FIRST so we can pass it as context into
+    // classifyLead — per-client Qualification.gs may use form-answer
+    // values (e.g. PX disqualifies leads whose Yearly Revenue answer
+    // is "Under $1M"). Passing an extra arg is backwards-compatible:
+    // older Qualification.gs implementations that only declare one
+    // parameter silently ignore the second one.
+    const formAnswers = {};
+    formColIdx.forEach(function (fc) {
+      formAnswers[fc.q.label] = fc.col ? str(r[fc.col - 1]) : '';
+    });
+    const ctx     = { formAnswers: formAnswers };
+    const cls     = classifyLead(rawCat, ctx);                     // from Qualification.gs
+    const stage   = classifyStage(rawCat, ctx);                    // from Stages.gs
     const notes   = colIdx.salesNotes   ? str(r[colIdx.salesNotes - 1])           : '';
     const revenue = colIdx.saleRevenue  ? num(r[colIdx.saleRevenue - 1])          : 0;
     const source  = colIdx.source       ? str(r[colIdx.source - 1])               : '';
@@ -189,11 +200,6 @@ function loadAllRows() {
     }
     const adThumbnailUrl         = extractThumbUrl(colIdx.adThumbnailUrl);
     const adThumbnailUrlFallback = extractThumbUrl(colIdx.adThumbnailFallback);
-
-    const formAnswers = {};
-    formColIdx.forEach(function (fc) {
-      formAnswers[fc.q.label] = fc.col ? str(r[fc.col - 1]) : '';
-    });
 
     if (date) {
       if (!dateMin || date < dateMin) dateMin = date;
@@ -557,11 +563,11 @@ function computeErrors(rows) {
     // table so the user can jump to the actual row in the sheet.
     samples: {
       noCampaign: rows.filter(function (r) { return !r.campaign; }).slice(0, 25)
-                       .map(function (r) { return slimRow(r, 'No campaign tagged'); }),
+                       .map(function (r) { return slimRow(r, 'No Campaign ID tagged'); }),
       noAdSet:    rows.filter(function (r) { return !r.adSet;    }).slice(0, 25)
-                       .map(function (r) { return slimRow(r, 'No ad set tagged'); }),
+                       .map(function (r) { return slimRow(r, 'No Ad Set ID tagged'); }),
       noAd:       rows.filter(function (r) { return !r.ad;       }).slice(0, 25)
-                       .map(function (r) { return slimRow(r, 'No ad tagged'); }),
+                       .map(function (r) { return slimRow(r, 'No Ad ID tagged'); }),
       noFbclid:   fb.filter(function (r) { return !r.fbclid;     }).slice(0, 25)
                        .map(function (r) { return slimRow(r, 'No fbclid (pixel/CAPI gap)'); })
     }
