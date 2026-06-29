@@ -45,9 +45,9 @@ const CONFIG = {
     salesNotes:   'Sales team notes',    // H  (Location at F, Funnel Type at G — unused)
     saleRevenue:  'Sale Revenue',        // I
     source:       'Source',              // J
-    campaign:     'Campaign',            // K
-    adSet:        'Ad set',              // L
-    ad:           'Ad',                  // M
+    campaign:     'Campaign ID',            // K
+    adSet:        'Ad Set ID',              // L
+    ad:           'Ad ID',                  // M
     pageVariant:  'Page Variant',        // N
     fbclid:       'Fbclid',              // O
 
