@@ -50,9 +50,9 @@ const CONFIG = {
     salesNotes:   'Sales Team Notes',    // F
     saleRevenue:  'Sale Revenue',        // G — numeric, blank/0 = not closed
     source:       'Source',              // H — Facebook, Google, IG, etc.
-    campaign:     'Campaign ID',         // I — was 'Campaign'
-    adSet:        'Ad Set ID',           // J — was 'Ad Set'
-    ad:           'Ad ID',               // K — was 'Ad'
+    campaign:     'Campaign',            // I — holds the Campaign ID value (header text unchanged)
+    adSet:        'Ad Set',              // J — holds the Ad Set ID value (header text unchanged)
+    ad:           'Ad',                  // K — holds the Ad ID value (header text unchanged)
     pageVariant:  'Page Variant',        // L
     fbclid:       'Fbclid',              // M
 
