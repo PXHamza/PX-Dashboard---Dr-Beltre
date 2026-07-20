@@ -1,30 +1,50 @@
 /**
  * Stages.gs — PX Medical pipeline stages for the "Funnel Stages" tab.
  *
- * NOTE: the client didn't specify a Lead Category list, so the STAGES
- * array below is a generic medical-practice funnel template. Once the
- * actual CRM stages are confirmed, edit the array — the dashboard will
- * pick up the change on next refresh.
+ * Ordered as the client supplied them. The dashboard preserves this order
+ * in the distribution chart and breakdown table.
  *
  * Terminal flags:
- *   - Unqualified — the only stage that disqualifies (see Qualification.gs).
- *   - No Show — pre-call drop-off.
- *   - Closed Won — won outcome.
- *   - Closed Lost — lost outcome.
+ *   - No RSVP - Cancelled, No show — pre-call branches.
+ *   - Unqualified | After The Call — disqualifying (see Qualification.gs).
+ *   - Not A Fit | Application Cancelled — disqualifying.
+ *   - Paid — won outcome (there's no separate "Won" stage in this pipeline;
+ *     Paid IS the win).
+ *   - Lost — lost outcome.
+ *   - Fake Lead — bucketed as Junk by Qualification.gs via the 'fake' keyword.
+ *
+ * The "Longer-Term Nuture" spelling matches the client's Lead Category
+ * text (misspelling and all). Match keywords accept both 'nuture' and
+ * the correct 'nurture' in case future rows use the correct spelling.
  */
 
 const STAGES = [
-  { name: 'New Lead',         match: ['new lead']                                            },
-  { name: 'Tried Contacting', match: ['tried contacting', 'attempted']                       },
-  { name: 'Consult Booked',   match: ['consult booked', 'consultation booked', 'booked']     },
-  { name: 'No Show',          match: ['no show', 'no-show'],                terminal: true   },
-  { name: 'Consult Completed',match: ['consult completed', 'consultation completed',
-                                      'showed', 'completed']                                 },
-  { name: 'Qualified',        match: ['qualified']                                           },
-  { name: 'Unqualified',      match: ['unqualified'],                       terminal: true   },
-  { name: 'Proposal Sent',    match: ['proposal sent']                                       },
-  { name: 'Closed Won',       match: ['closed won', 'won'], won:  true,     terminal: true   },
-  { name: 'Closed Lost',      match: ['closed lost', 'lost'], lost: true,   terminal: true   }
+  { name: 'New Lead (Not Booked)',              match: ['new lead (not booked)', 'new lead']                             },
+  { name: 'Meeting Booked',                     match: ['meeting booked']                                                },
+  { name: 'No RSVP - Cancelled',                match: ['no rsvp - cancelled', 'no rsvp cancelled', 'no rsvp'],
+                                                terminal: true                                                            },
+  { name: 'No show',                            match: ['no show', 'no-show'],                terminal: true              },
+  { name: 'Unqualified | After The Call',       match: ['unqualified | after the call',
+                                                        'unqualified after the call',
+                                                        'unqualified'],                       terminal: true              },
+  { name: 'Call #2',                            match: ['call #2', 'call 2']                                             },
+  { name: 'Call #3',                            match: ['call #3', 'call 3']                                             },
+  { name: 'Qualified | Not Ready (Longer-Term Nuture)',
+                                                match: ['qualified | not ready',
+                                                        'qualified not ready',
+                                                        'longer-term nuture',
+                                                        'longer term nuture',
+                                                        'longer-term nurture',
+                                                        'longer term nurture',
+                                                        'not ready']                                                     },
+  { name: 'Contract Sent',                      match: ['contract sent']                                                 },
+  { name: 'Paid',                               match: ['paid'],           won:  true,        terminal: true              },
+  { name: 'Lost',                               match: ['lost'],           lost: true,        terminal: true              },
+  { name: 'Not A Fit | Application Cancelled',  match: ['not a fit | application cancelled',
+                                                        'not a fit',
+                                                        'application cancelled'],             terminal: true              },
+  { name: 'Fake Lead',                          match: ['fake lead'],                         terminal: true              },
+  { name: 'Cold Lead List',                     match: ['cold lead list', 'cold lead']                                   }
 ];
 
 /**

@@ -1,11 +1,23 @@
 /**
  * Qualification.gs — PX Medical lead-qualification rule.
  *
- * NOTE: the client didn't specify a qualification rule, so this file uses
- * the generic default: a lead is UNQUALIFIED only when its Lead Category
- * contains the substring "unqualified". Everything else counts as
- * qualified. Adjust DISQUALIFYING_KEYWORDS once the actual funnel stages
- * are confirmed.
+ * A lead is considered UNQUALIFIED if EITHER:
+ *   - Its Lead Category contains "unqualified"  → matches
+ *     "Unqualified | After The Call"
+ *   - Its Lead Category contains "not a fit"    → matches
+ *     "Not A Fit | Application Cancelled"
+ *
+ * Every other stage — including New Lead (Not Booked), Meeting Booked,
+ * No RSVP - Cancelled, No show, Call #2 / Call #3, Qualified | Not
+ * Ready, Contract Sent, Paid, Lost, and Cold Lead List — counts as
+ * QUALIFIED.
+ *
+ * "Fake Lead" is intercepted by JUNK_KEYWORDS via the 'fake' entry
+ * and rendered in the Junk bucket on the donut.
+ *
+ * This mirrors the rule set for the sibling "PX" client. If PX Medical
+ * wants a stricter definition (e.g. also exclude No show or No RSVP),
+ * add the relevant keyword to DISQUALIFYING_KEYWORDS below.
  */
 
 const QUALIFICATION = {
@@ -14,12 +26,14 @@ const QUALIFICATION = {
    * Anything else → qualified.
    */
   DISQUALIFYING_KEYWORDS: [
-    'unqualified'
+    'unqualified',   // matches "Unqualified | After The Call"
+    'not a fit'      // matches "Not A Fit | Application Cancelled"
   ],
 
   /**
    * Outright junk / spam categories. Tracked separately from "Unqualified"
    * so we can show three buckets on the donut: Qualified / Unqualified / Junk.
+   * 'fake' catches the "Fake Lead" category.
    */
   JUNK_KEYWORDS: [
     'junk',
