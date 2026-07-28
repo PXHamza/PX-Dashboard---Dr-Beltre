@@ -14,6 +14,10 @@
  *   - "GLP-1 Downsell" captures the alternate (lower-priced) product
  *     path — also kept active so leads here still count toward the
  *     pipeline volume.
+ *   - The winning stage is "Won (GLP -1)" — that IS the win, and it's
+ *     flagged won:true. Legacy rows with just "Won" still classify
+ *     into this stage via the 'won' fallback keyword.
+ *   - "No Show" is a terminal branch (pre-consult drop-off).
  */
 
 const STAGES = [
@@ -25,11 +29,16 @@ const STAGES = [
   { name: 'Qualified (Moving Forward)', match: ['qualified (moving forward)',
                                                 'qualified moving forward',
                                                 'moving forward']                           },
-  { name: 'Won',                        match: ['won'],  won:  true,    terminal: true      },
+  // The winning stage was renamed to "Won (GLP -1)" — match keywords
+  // accept the new label, minor formatting variants, and plain 'won'
+  // so any legacy rows still classify correctly.
+  { name: 'Won (GLP -1)',               match: ['won (glp -1)', 'won (glp-1)', 'won'],
+                                        won:  true,                    terminal: true      },
   { name: 'Lost',                       match: ['lost'], lost: true,    terminal: true      },
   { name: 'Waiting for Finance',        match: ['waiting for finance', 'awaiting finance']  },
   { name: 'GLP-1 Downsell',             match: ['glp-1 downsell', 'glp1 downsell',
-                                                'glp-1', 'glp1']                            }
+                                                'glp-1', 'glp1']                            },
+  { name: 'No Show',                    match: ['no show', 'no-show'], terminal: true       }
 ];
 
 /**

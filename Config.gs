@@ -156,5 +156,17 @@ const FORM_QUESTIONS = [
     label:  'State',
     type:   'choice',
     topN:   15
+  },
+  {
+    header: 'Currently Live in Florida',               // col V
+    label:  'Florida Resident?',
+    type:   'choice',
+    topN:   4
+  },
+  {
+    header: 'previously had a weight loss procedure',  // col W
+    label:  'Prior Procedure?',
+    type:   'choice',
+    topN:   6
   }
 ];
