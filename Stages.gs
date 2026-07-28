@@ -41,6 +41,37 @@ const STAGES = [
 ];
 
 /**
+ * FEATURED_METRICS — optional per-client list of extra KPI cards that
+ * appear on the Overview tab below the main KPI strip. Each entry
+ * computes (leads whose stage matches stageNames) / total leads and
+ * renders as one card.
+ *
+ * Fields per entry:
+ *   label       (string, required)   Card label.
+ *   stageNames  (string[], required) Stage names (from STAGES above) to
+ *                                    include in the numerator.
+ *   color       (string, optional)   'green'|'blue'|'pink'|'red'|
+ *                                    'amber'|'purple'. Defaults to blue.
+ *   as          (string, optional)   'pct' (default) shows a percentage
+ *                                    with an "N of M" meta line;
+ *                                    'count' shows the raw count.
+ *
+ * Leave empty [] to hide the strip entirely.
+ */
+const FEATURED_METRICS = [];
+
+/**
+ * NOTE_BREAKDOWN_STAGES — optional per-client list of stage names. For
+ * each stage listed, the dashboard tallies the distinct Sales-team notes
+ * on leads at that stage and renders a horizontal bar chart of the top
+ * reasons on the Overview tab. Useful when the notes column carries
+ * structured codes like "Auto Unqualified - Under 30 pounds".
+ *
+ * Leave empty [] to hide the breakdown panels entirely.
+ */
+const NOTE_BREAKDOWN_STAGES = [];
+
+/**
  * Map a raw lead-category value to one of the configured stage names.
  * Returns 'Other' if nothing matches — those leads show up in a separate
  * "Unmatched" bucket on the dashboard so a typo in the source data is

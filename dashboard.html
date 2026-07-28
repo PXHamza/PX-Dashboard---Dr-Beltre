@@ -291,6 +291,9 @@
   <!-- ============================================================ Overview -->
   <div class="pane active" id="pane-overview">
     <div class="grid grid-5" id="kpiStrip"></div>
+    <!-- Featured metrics — extra per-client KPI cards defined in Stages.gs.
+         Hidden entirely when FEATURED_METRICS is empty. -->
+    <div id="featuredMetrics" style="margin-top: 12px;"></div>
     <div class="legend" id="qualityLegend"></div>
     <div class="grid grid-2-1" style="margin-top: 6px;">
       <div class="panel">
@@ -309,6 +312,9 @@
       <div class="sub">Top 10 Campaign IDs. Each bar = 100% of that campaign's leads.</div>
       <div class="chart-wrap"><canvas id="chartByCampaign"></canvas></div>
     </div>
+    <!-- Sales-team-notes breakdowns — one panel per stage listed in
+         NOTE_BREAKDOWN_STAGES. Hidden entirely when that list is empty. -->
+    <div id="noteBreakdowns" style="margin-top: 16px;"></div>
   </div>
 
   <!-- ============================================================ Funnel Stages -->
@@ -567,6 +573,10 @@ function render(p) {
 
   // KPI strip with delta arrows.
   paintKpiStrip(p.kpis, p.priorKpis, p.deltas, p.range);
+  // Featured metrics (opt-in per-client, defined in Stages.gs).
+  paintFeaturedMetrics(p.featuredMetrics);
+  // Sales-notes reason breakdown panels (opt-in per-client).
+  paintNoteBreakdowns(p.noteBreakdowns);
 
   // Tables — cheap to paint up front. Column labels mirror the rollup hierarchy
   // (parents on the left in muted colour, the leaf name highlighted on the right).
@@ -726,6 +736,80 @@ function paintKpiStrip(k, prior, deltas, range) {
       </div>
       <div class="meta">${c.pills}</div>
     </div>`).join('');
+}
+
+// ----- Featured metrics (opt-in per-client via Stages.gs FEATURED_METRICS) -
+// Renders as an extra KPI-card row below the main strip. If no metrics
+// are configured (master default), the container stays empty and takes
+// zero vertical space.
+function paintFeaturedMetrics(metrics) {
+  const root = document.getElementById('featuredMetrics');
+  if (!metrics || !metrics.length) { root.innerHTML = ''; return; }
+  // Auto-choose grid class based on count (2-6 fits nicely).
+  const n = Math.min(6, Math.max(2, metrics.length));
+  const cls = 'grid grid-' + (n >= 5 ? 5 : n === 4 ? 4 : n === 3 ? 3 : 2);
+  root.innerHTML = '<div class="' + cls + '">' + metrics.map(m => {
+    const value = m.as === 'count' ? fmt.int(m.count) : fmt.pct(m.pct);
+    const meta  = fmt.int(m.count) + ' of ' + fmt.int(m.total) + ' leads';
+    return `<div class="kpi k-${m.color || 'blue'}">
+      <div class="label">${escapeHtml(m.label)}</div>
+      <div class="value">${value}</div>
+      <div class="meta">${meta}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+// ----- Sales-notes reason breakdowns (opt-in via NOTE_BREAKDOWN_STAGES) ----
+// One panel per configured stage, horizontal bar chart of the top 15
+// distinct notes seen on leads at that stage. Reason chart panels stack
+// two-per-row when there's more than one; render lazily on first paint.
+function paintNoteBreakdowns(breakdowns) {
+  const root = document.getElementById('noteBreakdowns');
+  if (!breakdowns || !breakdowns.length) { root.innerHTML = ''; return; }
+  root.innerHTML = '<div class="grid grid-' + (breakdowns.length > 1 ? 2 : 1) + '">' +
+    breakdowns.map((b, i) => `
+      <div class="panel">
+        <h3>${escapeHtml(b.stageName)} — Reason Breakdown</h3>
+        <div class="sub">${fmt.int(b.withNotes)} of ${fmt.int(b.totalAtStage)} leads at this stage have notes. Top ${b.items.length}.</div>
+        ${b.items.length
+          ? '<div class="chart-wrap tall"><canvas id="noteBreakdown_' + i + '"></canvas></div>'
+          : '<div class="empty">No sales-team notes recorded for leads at this stage yet.</div>'}
+      </div>
+    `).join('') + '</div>';
+
+  // Render each chart after canvases are in the DOM.
+  breakdowns.forEach((b, i) => {
+    if (!b.items.length) return;
+    destroy('noteBreakdown_' + i);
+    const ctx = document.getElementById('noteBreakdown_' + i).getContext('2d');
+    CHARTS['noteBreakdown_' + i] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: b.items.map(it => it.note),
+        datasets: [{
+          data: b.items.map(it => it.count),
+          backgroundColor: PAYLOAD.brand.accent,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v   = Number(ctx.parsed.x) || 0;
+                const pct = b.totalAtStage ? ((v / b.totalAtStage) * 100).toFixed(1) : '0';
+                return v.toLocaleString('en-US') + ' (' + pct + '% of stage)';
+              }
+            }
+          }
+        },
+        scales: { x: AXIS, y: AXIS }
+      }
+    });
+  });
 }
 
 /** Render a ▲/▼/— delta pill. green when "good" (good can be either direction
