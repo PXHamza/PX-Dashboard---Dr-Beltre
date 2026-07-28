@@ -102,7 +102,9 @@ function getDashboardPayload(filters) {
     formQuestions:       formInsights(cur),
     alerts:              computeAlerts(cur),
     topCreatives:        topCreatives(cur),
-    stages:              computeStages(cur)
+    stages:              computeStages(cur),
+    featuredMetrics:     computeFeaturedMetrics(cur),
+    noteBreakdowns:      computeNoteBreakdowns(cur)
   };
 }
 
@@ -791,6 +793,64 @@ function computeStages(rows) {
       winRate: total ? wonCount / total : 0
     }
   };
+}
+
+// =============================================================================
+// FEATURED METRICS + NOTE BREAKDOWNS  (opt-in per-client via Stages.gs)
+// =============================================================================
+
+/**
+ * Turn each FEATURED_METRICS entry into a KPI-card-ready object. Reads
+ * the config from Stages.gs; if FEATURED_METRICS is empty (the master
+ * default) this returns an empty array and the client hides the row.
+ */
+function computeFeaturedMetrics(rows) {
+  const total = rows.length;
+  const cfg = (typeof FEATURED_METRICS === 'undefined') ? [] : FEATURED_METRICS;
+  return cfg.map(function (m) {
+    const names = m.stageNames || [];
+    const count = rows.filter(function (r) {
+      return names.indexOf(r.stage) !== -1;
+    }).length;
+    return {
+      label: m.label || '',
+      color: m.color || 'blue',
+      as:    m.as    || 'pct',
+      count: count,
+      total: total,
+      pct:   safeDiv(count, total)
+    };
+  });
+}
+
+/**
+ * For each stage listed in NOTE_BREAKDOWN_STAGES, tally the distinct
+ * Sales-team notes on leads at that stage. Sorted by frequency, top 15.
+ *
+ * Useful for surfacing auto-DQ reasons ("Auto Unqualified - Under 30
+ * pounds") or downsell notes without any per-client parsing.
+ */
+function computeNoteBreakdowns(rows) {
+  const cfg = (typeof NOTE_BREAKDOWN_STAGES === 'undefined') ? [] : NOTE_BREAKDOWN_STAGES;
+  return cfg.map(function (stageName) {
+    const stageRows = rows.filter(function (r) { return r.stage === stageName; });
+    const counts = {};
+    stageRows.forEach(function (r) {
+      const note = (r.notes || '').toString().trim();
+      if (!note) return;
+      counts[note] = (counts[note] || 0) + 1;
+    });
+    const items = Object.keys(counts)
+      .map(function (k) { return { note: k, count: counts[k] }; })
+      .sort(function (a, b) { return b.count - a.count; })
+      .slice(0, 15);
+    return {
+      stageName:    stageName,
+      totalAtStage: stageRows.length,
+      withNotes:    stageRows.filter(function (r) { return r.notes; }).length,
+      items:        items
+    };
+  });
 }
 
 // =============================================================================

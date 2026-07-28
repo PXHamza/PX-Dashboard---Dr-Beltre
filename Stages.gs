@@ -42,6 +42,60 @@ const STAGES = [
 ];
 
 /**
+ * FEATURED_METRICS — optional per-client list of extra KPI cards that
+ * appear on the Overview tab below the main KPI strip. Each entry
+ * computes (leads whose stage matches stageNames) / total leads and
+ * renders as one card.
+ *
+ * Fields per entry:
+ *   label       (string, required)   Card label.
+ *   stageNames  (string[], required) Stage names (from STAGES above) to
+ *                                    include in the numerator.
+ *   color       (string, optional)   'green'|'blue'|'pink'|'red'|
+ *                                    'amber'|'purple'. Defaults to blue.
+ *   as          (string, optional)   'pct' (default) shows a percentage
+ *                                    with an "N of M" meta line;
+ *                                    'count' shows the raw count.
+ *
+ * Leave empty [] to hide the strip entirely.
+ */
+const FEATURED_METRICS = [
+  // Booked Calls = leads currently at Booked Consult OR any later stage
+  // that implies a call already happened (Booked Surgery, Qualified,
+  // Won, Lost, Waiting for Finance, GLP-1 Downsell).
+  { label: 'Booked Calls %',   stageNames: ['Booked Consult', 'Booked Surgery',
+                                             'Qualified (Moving Forward)',
+                                             'Won (GLP -1)', 'Lost',
+                                             'Waiting for Finance',
+                                             'GLP-1 Downsell'],           color: 'blue'   },
+  // Northstar: leads that made it to Booked Surgery — the primary win.
+  { label: 'Booked Surgery %', stageNames: ['Booked Surgery'],            color: 'green'  },
+  // Secondary win path: downsell to GLP-1.
+  { label: 'GLP-1 Won %',      stageNames: ['Won (GLP -1)'],              color: 'amber'  },
+  // How much of the pipeline is parked in GLP-1 downsell right now.
+  { label: 'GLP-1 Downsell %', stageNames: ['GLP-1 Downsell'],            color: 'pink'   },
+  // Combined win rate: Booked Surgery + GLP-1 Won across all leads.
+  { label: 'Combined Won %',   stageNames: ['Booked Surgery', 'Won (GLP -1)'],
+                                                                          color: 'purple' },
+  // No-show rate — pre-consult drop-off.
+  { label: 'No Show %',        stageNames: ['No Show'],                   color: 'red'    }
+];
+
+/**
+ * NOTE_BREAKDOWN_STAGES — optional per-client list of stage names. For
+ * each stage listed, the dashboard tallies the distinct Sales-team notes
+ * on leads at that stage and renders a horizontal bar chart of the top
+ * reasons on the Overview tab. Useful when the notes column carries
+ * structured codes like "Auto Unqualified - Under 30 pounds".
+ *
+ * Leave empty [] to hide the breakdown panels entirely.
+ */
+const NOTE_BREAKDOWN_STAGES = [
+  'Unqualified',      // Sales notes carry "Auto Unqualified - <reason>" strings
+  'GLP-1 Downsell'    // Sales notes carry the reason a lead was downsold
+];
+
+/**
  * Map a raw lead-category value to one of the configured stage names.
  * Returns 'Other' if nothing matches.
  */
