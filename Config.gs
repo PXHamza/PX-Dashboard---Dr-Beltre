@@ -5,144 +5,89 @@
  * Three things to look at:
  *   1) CONFIG.DATA_SHEET    — the tab that holds the raw lead rows.
  *   2) CONFIG.COLUMNS       — map dashboard fields to the client's column
- *                             headers (case-insensitive). If a header is
- *                             renamed or moves, just update the mapping —
- *                             you never need to touch column letters.
+ *                             headers (case-insensitive).
  *   3) FORM_QUESTIONS       — the open-ended form questions to chart in the
- *                             "Form Insights" tab. Add / remove / reword
- *                             freely, then re-open the dashboard.
+ *                             "Form Insights" tab.
  *
- * Everything else (KPI math, charts, layout) reads from this file via
- * field keys, so a column move or a rename never breaks the dashboard.
+ * ----------------------------------------------------------------------------
+ * PX OF FUNNEL — column layout. Extra CRM columns at E (Website URL?),
+ * G (Owner) and H (Meeting Time) push the standard fields further right;
+ * Funnel Type at T is also a CRM-only field. Standard fields land at:
+ *
+ *   A  Date                       K  Source                  U  Q1 Monthly revenue
+ *   B  Name                       L  Campaign                V  Q2 12-month goal
+ *   C  Email                      M  Ad set                  W  Q3 Biggest blocker
+ *   D  Phone Number               N  Ad                      X  Q4 Anything else
+ *   E  Website URL? (-)           O  Preview Link            Y  Q5 Willing to invest?
+ *   F  Lead Category              P  Creative Preview Link   Z  Q6 Show-up agreement
+ *   G  Owner (-)                  Q  Ad Thumbnail (=IMAGE)
+ *   H  Meeting Time (-)           R  Page Variant
+ *   I  Sales team notes           S  Fbclid
+ *   J  Sale Revenue               T  Funnel Type (-)
+ *
+ * Columns marked (-) are CRM trackers the dashboard doesn't visualise.
+ * ----------------------------------------------------------------------------
  */
 
 const CONFIG = {
 
-  // ---------------------------------------------------------------------------
-  // 1) Source sheet — must exist in the spreadsheet.
-  // ---------------------------------------------------------------------------
   DATA_SHEET: 'Lead Data',
 
-  // ---------------------------------------------------------------------------
-  // 2) Column mapping — field key → header text in row 1 of DATA_SHEET.
-  //
-  //    Matching order (resolveColumn in Code.gs):
-  //      1. EXACT case-insensitive match — the value here matches a header
-  //         character-for-character. Use this when headers are clean.
-  //      2. Case-insensitive "contains" — used as a fallback when no exact
-  //         match exists (e.g. value 'Date' matches header 'Created Date').
-  //      3. Column letter — if the value looks like 'A', 'AA' etc and no
-  //         header matched, treated as a literal column letter.
-  //
-  //    IMPORTANT: ambiguous short values like 'Ad' will EXACT-match a header
-  //    called "Ad" (column K) before falling back to contains-match. If your
-  //    header is actually "Ad Name", set `ad: 'Ad Name'` so it doesn't
-  //    contains-match "Ad Set" by accident.
-  //
-  //    Set a value to '' (empty string) to disable that field entirely.
-  // ---------------------------------------------------------------------------
   COLUMNS: {
-    date:         'Date',                // A — when the lead came in
+    date:         'Date',                // A
     name:         'Name',                // B
     email:        'Email',               // C
-    phone:        'Phone',               // D
-    leadCategory: 'Lead Category',       // E — Qualified / Unqualified / Junk
-    salesNotes:   'Sales Team Notes',    // F
-    saleRevenue:  'Sale Revenue',        // G — numeric, blank/0 = not closed
-    source:       'Source',              // H — Facebook, Google, IG, etc.
-    campaign:     'Campaign',            // I — holds the Campaign ID value (header text unchanged)
-    adSet:        'Ad Set',              // J — holds the Ad Set ID value (header text unchanged)
-    ad:           'Ad',                  // K — holds the Ad ID value (header text unchanged)
-    pageVariant:  'Page Variant',        // L
-    fbclid:       'Fbclid',              // M
+    phone:        'Phone Number',        // D
+    leadCategory: 'Lead Category',       // F  (Website URL? at E — unused)
+    salesNotes:   'Sales team notes',    // I  (Owner at G, Meeting Time at H — unused)
+    saleRevenue:  'Sale Revenue',        // J
+    source:       'Source',              // K
+    campaign:     'Campaign',            // L
+    adSet:        'Ad set',              // M
+    ad:           'Ad',                  // N
+    pageVariant:  'Page Variant',        // R
+    fbclid:       'Fbclid',              // S
 
     // ---- Creative-preview columns (used by the "Top Creatives" tab) ----
-    // Column V holds the Facebook ad-preview URL (the clickable link).
-    // Column W holds the Creative Preview Link — a direct, full-resolution
-    // image URL used as the thumbnail.
-    // Optional: adThumbnailFallback can point to a column that holds an
-    // =IMAGE("...") formula. If the primary thumbnailUrl fails to render
-    // (e.g. column W is a VIDEO URL the browser can't show in an <img>),
-    // the dashboard automatically falls back to the URL extracted from
-    // this column's =IMAGE() formula. Leave as '' to disable.
-    adPreviewUrl:        'V',            // V — Ad Preview Link
-    adThumbnailUrl:      'W',            // W — Creative Preview Link (direct image URL)
-    adThumbnailFallback: ''              // Optional: column with =IMAGE() formula (e.g. 'X')
+    // Column O holds the clickable Facebook ad-preview URL.
+    // Column P holds the Creative Preview Link — a direct image URL used
+    // as the thumbnail. For VIDEO creatives that URL isn't an <img>-able
+    // file, so we fall back to the =IMAGE rendering in column Q.
+    adPreviewUrl:        'O',            // O — Preview Link
+    adThumbnailUrl:      'P',            // P — Creative Preview Link (direct image URL)
+    adThumbnailFallback: 'Q'             // Q — Ad Thumbnail (=IMAGE — used for video creatives)
   },
 
   // ---------------------------------------------------------------------------
-  // Lead-qualification rule lives in Qualification.gs (separate file so each
-  // client's "what counts as qualified?" logic is editable in one place).
+  // Lead-qualification rule lives in Qualification.gs.
   // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // 3) Brand — appears in the dialog header and as the chart accent.
-  // ---------------------------------------------------------------------------
   BRAND: {
     title:    'PX Insights',
-    subtitle: 'Funnel Quality & Ad Performance',
+    subtitle: 'PX OF Funnel — Funnel Quality & Ad Performance',
     logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
     linkText: 'APPLY FOR YOUR FREE STRATEGY SESSION',
-    accent:   '#FF2BD6',                             // Hot pink (PX brand)
-    accent2:  '#10B981',                             // Action green
-    bg:       '#0A0F1F',                             // Dialog background
-    card:     '#131B2E'                              // KPI card background
+    accent:   '#FF2BD6',
+    accent2:  '#10B981',
+    bg:       '#0A0F1F',
+    card:     '#131B2E'
   }
 };
 
 // =============================================================================
-// FORM_QUESTIONS — the open-ended questions to chart on the Form Insights tab.
+// FORM_QUESTIONS — PX OF Funnel intake, 6 questions in cols U → Z.
 //
-// Each object:
-//   header  (string)  Header text in the data sheet (case-insensitive contains).
-//                     Leave alone if you don't know — Code.gs will look up the
-//                     exact column at runtime.
-//   label   (string)  Short label shown above the chart.
-//   type    'choice' | 'text'
-//                     'choice' → bar chart of the most common answers
-//                     'text'   → top words list (mini word cloud)
-//   topN    (number)  How many bars/words to render. Default 10.
-//
-// To add a question for a new client: append a new object. To remove one:
-// delete its entry. No other file needs to change.
+// Each header lookup uses a distinctive substring so nothing collides.
+// Q6 (col Z) uses 'ship an old woman' — the funnel's memorable show-up
+// commitment question.
 // =============================================================================
 
 const FORM_QUESTIONS = [
-  {
-    header: 'How long have you been struggling with your weight?',
-    label:  'Struggle Duration',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Are you currently diabetic?',
-    label:  'Diabetic',
-    type:   'choice',
-    topN:   6
-  },
-  {
-    header: 'How much weight are you looking to lose?',
-    label:  'Weight to Lose',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'biggest motivation',
-    label:  'Motivation',
-    type:   'text',
-    topN:   20
-  },
-  {
-    header: 'When would you look at getting started?',
-    label:  'Start Timing',
-    type:   'choice',
-    topN:   8
-  },
-  {
-    header: 'Anything else you would like to tell us',
-    label:  'Other Notes',
-    type:   'text',
-    topN:   25
-  }
+  { header: 'current monthly revenue',                                                 label: 'Monthly Revenue',       type: 'choice', topN: 10 },
+  { header: '12 months from now in your business',                                     label: '12-Month Goal',         type: 'text',   topN: 30 },
+  { header: 'biggest blocker',                                                          label: 'Biggest Blocker',       type: 'text',   topN: 25 },
+  { header: 'important for me to understand about you or your agency',                  label: 'Anything Else',         type: 'text',   topN: 30 },
+  { header: 'willing to invest in the program',                                         label: 'Willing to Invest?',    type: 'choice', topN:  6 },
+  { header: 'ship an old woman',                                                        label: 'Show-Up Agreement',     type: 'choice', topN:  4 }
 ];

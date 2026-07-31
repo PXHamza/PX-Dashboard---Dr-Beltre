@@ -1,81 +1,77 @@
 /**
- * Stages.gs — per-client pipeline stages for the "Funnel Stages" tab.
+ * Stages.gs — PX OF Funnel pipeline stages for the "Funnel Stages" tab.
  *
- * Every client's CRM has a different set of stages (a SaaS funnel looks
- * nothing like a construction-quote funnel). Defining them once here keeps
- * the dashboard layout fixed while making each client's stages a single
- * file edit.
+ * Ordered as the client supplied them.
  *
- * STAGES is an ordered array — roughly the order leads progress through
- * the pipeline. The dashboard preserves this order in the distribution
- * chart and the breakdown table.
- *
- * Each stage object:
- *   name      (string, required)  Display label.
- *   match     (string[], required) Case-insensitive substring keywords
- *                                  that classify a raw Lead Category into
- *                                  this stage. First STAGES entry whose
- *                                  match hits wins — so put more specific
- *                                  variants (e.g. "Unqualified (Post Call)")
- *                                  BEFORE the broad version ("Unqualified").
- *   terminal  (boolean, optional) Dead-end / branch state. Excluded from
- *                                  the "active in pipeline" count.
- *   won       (boolean, optional) Counts toward the win rate. Also implies
- *                                  terminal.
- *   lost      (boolean, optional) Counts toward the lost bucket. Also
- *                                  implies terminal.
- *
- * To deploy on a new client: replace the STAGES list with their CRM stages
- * in the order they appear. Nothing else changes.
+ * Terminal flags:
+ *   - No RSVP - Cancelled, No Show — pre-call branches.
+ *   - Unqualified | After The Call — disqualifying (see Qualification.gs).
+ *   - Not A Fit | Application Cancelled — disqualifying.
+ *   - Paid — won outcome (no separate "Won" stage in this funnel).
+ *   - Lost — lost outcome.
+ *   - Fake Lead — junk (see Qualification.gs).
  */
 
 const STAGES = [
-  { name: 'New Lead',         match: ['new lead']                                 },
-  { name: 'Tried Contacting', match: ['tried contacting', 'attempted']            },
-  { name: 'Booked Call',      match: ['booked call', 'booked', 'scheduled']       },
-  { name: 'Showed Up',        match: ['showed up', 'showed', 'completed call']    },
-  { name: 'Qualified',        match: ['qualified']                                },
-  { name: 'Unqualified',      match: ['unqualified'],   terminal: true            },
-  { name: 'Closed Won',       match: ['closed won', 'won'],  won:  true, terminal: true },
-  { name: 'Closed Lost',      match: ['closed lost', 'lost'], lost: true, terminal: true }
+  { name: "Filled In Form, Didn't Book",             match: ['filled in form', "didn't book"]                                    },
+  { name: 'Booked Strategy Session',                 match: ['booked strategy session', 'strategy session booked']               },
+  { name: 'No RSVP - Cancelled',                     match: ['no rsvp - cancelled', 'no rsvp cancelled', 'no rsvp'],
+                                                     terminal: true                                                              },
+  { name: 'No Show',                                 match: ['no show', 'no-show'],                     terminal: true           },
+  { name: 'Unqualified | After The Call',            match: ['unqualified | after the call',
+                                                             'unqualified after the call',
+                                                             'unqualified'],                            terminal: true           },
+  { name: 'Call #2',                                 match: ['call #2', 'call 2']                                                },
+  { name: 'Call #3',                                 match: ['call #3', 'call 3']                                                },
+  { name: 'Qualified | Not Ready',                   match: ['qualified | not ready',
+                                                             'qualified not ready',
+                                                             'not ready']                                                        },
+  { name: 'Contract Sent',                           match: ['contract sent']                                                    },
+  { name: 'Paid',                                    match: ['paid'],   won:  true,                     terminal: true           },
+  { name: 'Lost',                                    match: ['lost'],   lost: true,                     terminal: true           },
+  { name: 'Not A Fit | Application Cancelled',       match: ['not a fit | application cancelled',
+                                                             'not a fit',
+                                                             'application cancelled'],                  terminal: true           },
+  { name: 'Fake Lead',                               match: ['fake lead'],                              terminal: true           },
+  { name: 'Cold Lead List',                          match: ['cold lead list', 'cold lead']                                     }
 ];
 
 /**
- * FEATURED_METRICS — optional per-client list of extra KPI cards that
- * appear on the Overview tab below the main KPI strip. Each entry
- * computes (leads whose stage matches stageNames) / total leads and
- * renders as one card.
- *
- * Fields per entry:
- *   label       (string, required)   Card label.
- *   stageNames  (string[], required) Stage names (from STAGES above) to
- *                                    include in the numerator.
- *   color       (string, optional)   'green'|'blue'|'pink'|'red'|
- *                                    'amber'|'purple'. Defaults to blue.
- *   as          (string, optional)   'pct' (default) shows a percentage
- *                                    with an "N of M" meta line;
- *                                    'count' shows the raw count.
- *
- * Leave empty [] to hide the strip entirely.
+ * FEATURED_METRICS — populated below with the key funnel percentages.
+ * These render as an extra KPI-card row on the Overview tab.
  */
-const FEATURED_METRICS = [];
+const FEATURED_METRICS = [
+  // Booked Call % — leads that got past "Filled In Form, Didn't Book",
+  // i.e. everything from Booked Strategy Session onward except pre-call
+  // drop-offs (No RSVP / No Show).
+  { label: 'Booked Call %',   stageNames: ['Booked Strategy Session', 'Unqualified | After The Call',
+                                            'Call #2', 'Call #3', 'Qualified | Not Ready',
+                                            'Contract Sent', 'Paid', 'Lost',
+                                            'Not A Fit | Application Cancelled'],   color: 'blue'   },
+  // Contract Sent % — leads at Contract Sent OR past it (Paid).
+  { label: 'Contract Sent %', stageNames: ['Contract Sent', 'Paid'],                color: 'purple' },
+  // Paid % — the northstar close.
+  { label: 'Paid %',          stageNames: ['Paid'],                                 color: 'green'  },
+  // No Show + No RSVP combined — pre-call attrition.
+  { label: 'No-Show Attrition %', stageNames: ['No Show', 'No RSVP - Cancelled'],   color: 'red'    },
+  // Nurture — how many leads are parked long-term.
+  { label: 'Nurture %',       stageNames: ['Qualified | Not Ready', 'Cold Lead List'], color: 'amber' }
+];
 
 /**
- * NOTE_BREAKDOWN_STAGES — optional per-client list of stage names. For
- * each stage listed, the dashboard tallies the distinct Sales-team notes
- * on leads at that stage and renders a horizontal bar chart of the top
- * reasons on the Overview tab. Useful when the notes column carries
- * structured codes like "Auto Unqualified - Under 30 pounds".
- *
- * Leave empty [] to hide the breakdown panels entirely.
+ * NOTE_BREAKDOWN_STAGES — Sales-team notes on Unqualified and
+ * Not-A-Fit leads usually carry the specific reason. Surfacing them
+ * as bar charts on the Overview tab lets the team see the top DQ
+ * patterns at a glance.
  */
-const NOTE_BREAKDOWN_STAGES = [];
+const NOTE_BREAKDOWN_STAGES = [
+  'Unqualified | After The Call',
+  'Not A Fit | Application Cancelled'
+];
 
 /**
  * Map a raw lead-category value to one of the configured stage names.
- * Returns 'Other' if nothing matches — those leads show up in a separate
- * "Unmatched" bucket on the dashboard so a typo in the source data is
- * immediately visible.
+ * Returns 'Other' if nothing matches.
  */
 function classifyStage(rawCategory) {
   const s = (rawCategory == null ? '' : rawCategory.toString()).toLowerCase().trim();
