@@ -112,6 +112,12 @@ const NOTE_BREAKDOWN_STAGES = [
  *              the shorthand strings:
  *                '*ALL*'       — every lead in the filtered set
  *                '*QUALIFIED*' — every qualified lead (isQualified)
+ *   externalMetric (string, optional) An alternative to stageNames. Pulls
+ *              the count from the traffic-metrics payload rather than
+ *              the leads set. Currently supported keys:
+ *                'clicks'  — unique outbound clicks from Meta monthly
+ *                            tabs (see loadTrafficMetrics in Code.gs).
+ *                'adSpend' — total ad spend from Meta monthly tabs.
  *
  * The dashboard computes count + % of first step + % of prior step +
  * absolute drop for each step, no extra config required. Leave empty

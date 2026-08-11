@@ -372,6 +372,9 @@
   <div class="pane" id="pane-metrics">
     <div class="grid grid-5" id="kpiStrip"></div>
     <div id="featuredMetrics" style="margin-top: 12px;"></div>
+    <!-- Traffic Health — populated when monthly "MMM - YYYY" sheets exist.
+         Empty container when there's no data. -->
+    <div id="trafficKpis" style="margin-top: 12px;"></div>
     <div class="legend" id="qualityLegend"></div>
     <div class="grid grid-2-1" style="margin-top: 6px;">
       <div class="panel">
@@ -633,6 +636,8 @@ function render(p) {
   paintKpiStrip(p.kpis, p.priorKpis, p.deltas, p.range);
   // Featured metrics (opt-in per-client, defined in Stages.gs).
   paintFeaturedMetrics(p.featuredMetrics);
+  // Traffic Health strip (populated when monthly sheets exist).
+  paintTrafficKpis(p.traffic);
   // Sales-notes reason breakdown panels (opt-in per-client).
   paintNoteBreakdowns(p.noteBreakdowns);
 
@@ -819,6 +824,28 @@ function paintFeaturedMetrics(metrics) {
       <div class="meta">${meta}</div>
     </div>`;
   }).join('') + '</div>';
+}
+
+// ----- Traffic Health (Meta ad metrics from monthly "MMM - YYYY" sheets) --
+// Populated whenever loadTrafficMetrics finds at least one monthly tab
+// with same-window data. Renders zero-state as empty (container has no
+// height) so clients without monthly sheets see no artefacts.
+function paintTrafficKpis(traffic) {
+  const root = document.getElementById('trafficKpis');
+  if (!traffic || (!traffic.adSpend && !traffic.clicks)) { root.innerHTML = ''; return; }
+  const meta = traffic.daysCounted
+    ? traffic.daysCounted + ' day' + (traffic.daysCounted === 1 ? '' : 's') + ' of Meta data in range'
+    : 'From monthly Meta sheets';
+  const cards = [
+    { color: 'green',  label: 'Ad Spend',        value: fmt.money(traffic.adSpend),  meta: meta },
+    { color: 'blue',   label: 'Outbound Clicks', value: fmt.int(traffic.clicks),     meta: 'Unique clicks to LP' },
+    { color: 'amber',  label: 'CPLC',            value: fmt.money2(traffic.cplc),    meta: 'Cost per LP click' },
+    { color: 'pink',   label: 'CPM',             value: fmt.money2(traffic.cpm),     meta: 'Avg cost / 1k impressions' },
+    { color: 'purple', label: 'CTR',             value: fmt.pct(traffic.ctr),        meta: 'Avg outbound CTR' }
+  ];
+  root.innerHTML = '<div class="grid grid-5">' + cards.map(c =>
+    `<div class="kpi k-${c.color}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="meta">${c.meta}</div></div>`
+  ).join('') + '</div>';
 }
 
 // ----- Sales-notes reason breakdowns (opt-in via NOTE_BREAKDOWN_STAGES) ----
@@ -1164,10 +1191,15 @@ function paintFunnels(funnels) {
       // Bar height as % of the wrapper. Force a small minimum so even
       // zero-count steps show a sliver.
       const heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
+      // pctOfPrev is null when the prior step had zero — e.g. Total
+      // Clicks step returns 0 because no monthly sheet data is loaded
+      // yet. Show "—" instead of a misleading 0.0%.
       const caption = i === 0
         ? '<span class="first">100% start</span>'
-        : fmt.pct(s.pctOfPrev) + ' of prior' +
-          (s.dropFromPrev > 0 ? '<span class="drop">−' + fmt.int(s.dropFromPrev) + ' dropped</span>' : '');
+        : (s.pctOfPrev == null
+            ? '<span style="opacity:0.6">— no prior data</span>'
+            : fmt.pct(s.pctOfPrev) + ' of prior' +
+              (s.dropFromPrev > 0 ? '<span class="drop">−' + fmt.int(s.dropFromPrev) + ' dropped</span>' : ''));
       return `
         <div class="funnel-step">
           <div class="value">${fmt.int(s.count)}</div>
