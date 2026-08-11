@@ -125,71 +125,90 @@ const NOTE_BREAKDOWN_STAGES = [
  */
 const FUNNELS = [
   // -----------------------------------------------------------------------
-  // Primary funnel: Booked Surgery (the northstar). Each step is a subset
-  // of the prior step so the funnel tapers left-to-right.
+  // Primary funnel: Booked Surgery (the northstar). Each step is a strict
+  // subset of the prior step so the funnel tapers left-to-right.
   //
-  // Interpretation of the sheet's stages:
-  //   Landing Page CVR       — every submitted form (all rows in view).
-  //   Good Fit Lead          — passed qualification (isQualified).
-  //   Calendar Bookings      — reached Booked Consult or any later stage.
-  //   Show Up Rate           — moved PAST Booked Consult (so not stuck
-  //                            there and not tagged No Show).
-  //   Good Fit Post Consult  — booked to meet Beltre (Qualified Moving
-  //                            Forward + Booked Surgery + everything
-  //                            downstream from there).
-  //   Show Up To Beltre      — actually met Beltre (Booked Surgery +
-  //                            downstream outcomes).
-  //   Close Rate             — Booked Surgery (the win).
+  // IMPORTANT: GLP-1 Downsell and Won (GLP -1) are auto-assigned at form
+  // submission when a lead doesn't qualify for surgery. Those leads never
+  // enter the surgery consult flow, so they're EXCLUDED from every step
+  // starting at "Good Fit Lead in Funnel". Unqualified (Auto) is
+  // excluded for the same reason.
+  //
+  // Step-by-step counting rules:
+  //   Total Clicks           — Meta outbound clicks (from monthly sheets).
+  //   Landing Page CVR       — every form submission (all rows in view).
+  //   Good Fit Lead          — qualifies for the SURGERY pipeline. Excludes
+  //                            Unqualified, GLP-1 Downsell, Won (GLP -1).
+  //   Calendar Bookings      — booked an initial consult. Cumulative:
+  //                            counts leads at Booked Consult PLUS every
+  //                            downstream surgery-track stage (they had a
+  //                            booking at some point). No Show is included
+  //                            (a booking that wasn't attended).
+  //   Show Up Rate           — attended the initial consult. Progressed
+  //                            past Booked Consult and not tagged No Show.
+  //   Good Fit Post Consult  — deemed good fit post-consult (booked to
+  //                            meet Beltre). Same set as Show Up Rate given
+  //                            the current CRM structure — there's no
+  //                            explicit "showed up but bad fit" stage
+  //                            (those would move back to Unqualified).
+  //   Show Up To Beltre      — actually met Beltre. Excludes Qualified
+  //                            (Moving Forward), which means "booked to
+  //                            meet" but pre-meeting.
+  //   Close Rate             — Beltre closed them for surgery = Booked
+  //                            Surgery. (Waiting for Finance is booked
+  //                            but pending, so it's excluded from the win.)
   // -----------------------------------------------------------------------
   {
     title:    'Booked Surgery Funnel',
-    subtitle: 'Northstar — Meta click → surgery booked with Dr Beltre',
+    subtitle: 'Northstar — Meta click → surgery booked. GLP-1 & Unqualified auto-assigned at form; both excluded from this funnel.',
     steps: [
       // externalMetric='clicks' pulls the count from loadTrafficMetrics
-      // (monthly "MMM - YYYY" sheets). Adding this step here makes
-      // "Landing Page CVR" show the true click-to-lead rate as its
-      // "% of prior".
-      { label: 'Total Clicks',           sublabel: 'Meta outbound clicks',
+      // (monthly "MMM - YYYY" sheets). This makes "Landing Page CVR" show
+      // the true click-to-lead rate as its "% of prior".
+      { label: 'Total Clicks',            sublabel: 'Meta outbound clicks',
         externalMetric: 'clicks' },
-      { label: 'Landing Page CVR',       sublabel: 'Form submissions',
+      { label: 'Landing Page CVR',        sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*' },
-      { label: 'Good Fit Lead in Funnel', sublabel: 'Pass qualification',
-        stageNames: '*QUALIFIED*' },
-      { label: 'Calendar Bookings',      sublabel: 'Book initial call',
+      // Good Fit for SURGERY. Explicit include-list — safer than
+      // *QUALIFIED* which would leave GLP-1 leads in (they're not
+      // "unqualified", they're just on a different track).
+      { label: 'Good Fit Lead in Funnel', sublabel: 'Surgery-eligible (excl. Unqualified & GLP-1)',
+        stageNames: ['New Lead', 'Tried Contacting', 'Booked Consult',
+                     'Booked Surgery', 'Qualified (Moving Forward)',
+                     'Lost', 'Waiting for Finance', 'No Show'] },
+      { label: 'Calendar Bookings',       sublabel: 'Booked a consult (cumulative)',
         stageNames: ['Booked Consult', 'Booked Surgery',
-                     'Qualified (Moving Forward)', 'Won (GLP -1)',
-                     'Lost', 'Waiting for Finance', 'GLP-1 Downsell'] },
-      { label: 'Show Up Rate',           sublabel: 'Show up to initial call',
+                     'Qualified (Moving Forward)', 'Lost',
+                     'Waiting for Finance', 'No Show'] },
+      { label: 'Show Up Rate',            sublabel: 'Attended initial consult',
         stageNames: ['Booked Surgery', 'Qualified (Moving Forward)',
-                     'Won (GLP -1)', 'Lost', 'Waiting for Finance',
-                     'GLP-1 Downsell'] },
-      { label: 'Good Fit Post Consult',  sublabel: 'Booked to meet Beltre',
-        stageNames: ['Qualified (Moving Forward)', 'Booked Surgery',
-                     'Won (GLP -1)', 'Lost', 'Waiting for Finance',
-                     'GLP-1 Downsell'] },
-      { label: 'Show Up To Beltre',      sublabel: 'Meet Beltre',
-        stageNames: ['Booked Surgery', 'Won (GLP -1)', 'Lost',
-                     'Waiting for Finance', 'GLP-1 Downsell'] },
-      { label: 'Close Rate',             sublabel: 'Booked Surgery (win)',
+                     'Lost', 'Waiting for Finance'] },
+      { label: 'Good Fit Post Consult',   sublabel: 'Booked to meet Beltre',
+        stageNames: ['Booked Surgery', 'Qualified (Moving Forward)',
+                     'Lost', 'Waiting for Finance'] },
+      { label: 'Show Up To Beltre',       sublabel: 'Met Beltre (excl. pre-meeting)',
+        stageNames: ['Booked Surgery', 'Lost', 'Waiting for Finance'] },
+      { label: 'Close Rate',              sublabel: 'Booked Surgery (win)',
         stageNames: ['Booked Surgery'] }
     ]
   },
 
   // -----------------------------------------------------------------------
-  // Secondary funnel: GLP-1 downsell. Renders below the primary funnel
-  // with a pink bar treatment to visually distinguish it.
+  // Secondary funnel: GLP-1 downsell. Rendered below the primary funnel
+  // with a pink bar treatment. Bad Fit auto-classification happens at
+  // form submission — surgery-ineligible leads get routed here directly.
   // -----------------------------------------------------------------------
   {
     title:    'GLP-1 Downsell Funnel',
-    subtitle: 'Secondary — leads that don\'t qualify for surgery but buy GLP-1',
+    subtitle: 'Secondary — auto-routed at form when a lead doesn\'t qualify for surgery',
     steps: [
       { label: 'Total Clicks',             sublabel: 'Meta outbound clicks',
         externalMetric: 'clicks' },
-      { label: 'Landing Page CVR',         sublabel: 'Form submissions',
+      { label: 'Landing Page CVR',         sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*' },
-      { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Qualify for GLP-1 downsell',
+      { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Auto-routed to GLP-1 (cumulative)',
         stageNames: ['GLP-1 Downsell', 'Won (GLP -1)'] },
-      { label: 'Close Rate',               sublabel: 'GLP-1 downsell closed',
+      { label: 'Close Rate',               sublabel: 'GLP-1 purchased (win)',
         stageNames: ['Won (GLP -1)'] }
     ]
   }
