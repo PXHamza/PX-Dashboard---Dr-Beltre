@@ -104,7 +104,8 @@ function getDashboardPayload(filters) {
     topCreatives:        topCreatives(cur),
     stages:              computeStages(cur),
     featuredMetrics:     computeFeaturedMetrics(cur),
-    noteBreakdowns:      computeNoteBreakdowns(cur)
+    noteBreakdowns:      computeNoteBreakdowns(cur),
+    funnels:             computeFunnels(cur)
   };
 }
 
@@ -849,6 +850,54 @@ function computeNoteBreakdowns(rows) {
       totalAtStage: stageRows.length,
       withNotes:    stageRows.filter(function (r) { return r.notes; }).length,
       items:        items
+    };
+  });
+}
+
+/**
+ * Turn each FUNNELS entry into a step-by-step count structure ready for
+ * the horizontal-funnel rendering on the Overview tab. Each step gets
+ * count + pctOfFirst + pctOfPrev + dropFromPrev.
+ *
+ * stageNames can be an array of stage names OR one of the shortcuts:
+ *   '*ALL*'       — count every row in the filtered set
+ *   '*QUALIFIED*' — count every row where isQualified() is true
+ */
+function computeFunnels(rows) {
+  const cfg = (typeof FUNNELS === 'undefined') ? [] : FUNNELS;
+  if (!cfg.length) return [];
+  const total = rows.length;
+  const qualifiedCount = rows.filter(function (r) { return r.qualified; }).length;
+
+  return cfg.map(function (funnel) {
+    const steps = (funnel.steps || []).map(function (step) {
+      let count;
+      if (step.stageNames === '*ALL*') {
+        count = total;
+      } else if (step.stageNames === '*QUALIFIED*') {
+        count = qualifiedCount;
+      } else {
+        const names = step.stageNames || [];
+        count = rows.filter(function (r) { return names.indexOf(r.stage) !== -1; }).length;
+      }
+      return {
+        label:    step.label,
+        sublabel: step.sublabel || '',
+        count:    count
+      };
+    });
+
+    const first = steps.length ? steps[0].count : 0;
+    steps.forEach(function (s, i) {
+      s.pctOfFirst   = first ? s.count / first : 0;
+      s.pctOfPrev    = (i === 0) ? 1 : (steps[i - 1].count ? s.count / steps[i - 1].count : 0);
+      s.dropFromPrev = (i === 0) ? 0 : Math.max(0, steps[i - 1].count - s.count);
+    });
+
+    return {
+      title:    funnel.title || '',
+      subtitle: funnel.subtitle || '',
+      steps:    steps
     };
   });
 }
