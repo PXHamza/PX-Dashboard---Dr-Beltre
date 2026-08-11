@@ -42,7 +42,8 @@ function showDashboard() {
  *
  *   filters:
  *     preset       'Today' | 'Yesterday' | 'Last 7' | 'This Week' |
- *                  'Last Month' | 'Last 30' | 'Custom'
+ *                  'This Month' | 'Last Month' | 'Last 30' |
+ *                  'All Time' | 'Custom'
  *     fromIso      ISO date — used only when preset === 'Custom'
  *     toIso        ISO date — used only when preset === 'Custom'
  *     campaign     exact campaign name (or '')
@@ -311,12 +312,22 @@ function resolveRange(preset, fromIso, toIso, dataMin, dataMax) {
       priorTo = eod(add(now, -7));     priorFrom = sod(add(now, -13));
       break;
     case 'This Week':
-      // Week starts Monday. JS Sunday = 0.
-      var dow = now.getDay() || 7;            // Sun → 7
-      from = sod(add(now, -(dow - 1)));       // Mon
-      to   = eod(now);
-      priorFrom = sod(add(from, -7));
-      priorTo   = eod(add(from, -1));
+      // Full calendar week, Monday through Sunday (regardless of what day
+      // it is today). Future days in the range simply have no data yet.
+      // JS getDay(): Sunday = 0, so Sunday maps to dow = 7 for Mon-first.
+      var dow = now.getDay() || 7;
+      from = sod(add(now, -(dow - 1)));       // Monday of this week
+      to   = eod(add(from, 6));               // Sunday of this week
+      priorFrom = sod(add(from, -7));         // Monday of last week
+      priorTo   = eod(add(from, -1));         // Sunday of last week
+      break;
+    case 'This Month':
+      // Full calendar month — 1st through last day, even if today is
+      // mid-month. Prior = full previous month.
+      from = sod(new Date(now.getFullYear(), now.getMonth(),     1));
+      to   = eod(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      priorFrom = sod(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+      priorTo   = eod(new Date(now.getFullYear(), now.getMonth(),     0));
       break;
     case 'Last Month':
       from = sod(new Date(now.getFullYear(), now.getMonth() - 1, 1));
