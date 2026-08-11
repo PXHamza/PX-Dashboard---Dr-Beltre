@@ -117,7 +117,69 @@ const NOTE_BREAKDOWN_STAGES = [
  * absolute drop for each step, no extra config required. Leave empty
  * [] to hide the funnels section entirely.
  */
-const FUNNELS = [];
+const FUNNELS = [
+  // -----------------------------------------------------------------------
+  // Primary funnel: Booked Surgery (the northstar). Each step is a subset
+  // of the prior step so the funnel tapers left-to-right.
+  //
+  // Interpretation of the sheet's stages:
+  //   Landing Page CVR       — every submitted form (all rows in view).
+  //   Good Fit Lead          — passed qualification (isQualified).
+  //   Calendar Bookings      — reached Booked Consult or any later stage.
+  //   Show Up Rate           — moved PAST Booked Consult (so not stuck
+  //                            there and not tagged No Show).
+  //   Good Fit Post Consult  — booked to meet Beltre (Qualified Moving
+  //                            Forward + Booked Surgery + everything
+  //                            downstream from there).
+  //   Show Up To Beltre      — actually met Beltre (Booked Surgery +
+  //                            downstream outcomes).
+  //   Close Rate             — Booked Surgery (the win).
+  // -----------------------------------------------------------------------
+  {
+    title:    'Booked Surgery Funnel',
+    subtitle: 'Northstar — form submission → surgery booked with Dr Beltre',
+    steps: [
+      { label: 'Landing Page CVR',       sublabel: 'Form submissions',
+        stageNames: '*ALL*' },
+      { label: 'Good Fit Lead in Funnel', sublabel: 'Pass qualification',
+        stageNames: '*QUALIFIED*' },
+      { label: 'Calendar Bookings',      sublabel: 'Book initial call',
+        stageNames: ['Booked Consult', 'Booked Surgery',
+                     'Qualified (Moving Forward)', 'Won (GLP -1)',
+                     'Lost', 'Waiting for Finance', 'GLP-1 Downsell'] },
+      { label: 'Show Up Rate',           sublabel: 'Show up to initial call',
+        stageNames: ['Booked Surgery', 'Qualified (Moving Forward)',
+                     'Won (GLP -1)', 'Lost', 'Waiting for Finance',
+                     'GLP-1 Downsell'] },
+      { label: 'Good Fit Post Consult',  sublabel: 'Booked to meet Beltre',
+        stageNames: ['Qualified (Moving Forward)', 'Booked Surgery',
+                     'Won (GLP -1)', 'Lost', 'Waiting for Finance',
+                     'GLP-1 Downsell'] },
+      { label: 'Show Up To Beltre',      sublabel: 'Meet Beltre',
+        stageNames: ['Booked Surgery', 'Won (GLP -1)', 'Lost',
+                     'Waiting for Finance', 'GLP-1 Downsell'] },
+      { label: 'Close Rate',             sublabel: 'Booked Surgery (win)',
+        stageNames: ['Booked Surgery'] }
+    ]
+  },
+
+  // -----------------------------------------------------------------------
+  // Secondary funnel: GLP-1 downsell. Renders below the primary funnel
+  // with a pink bar treatment to visually distinguish it.
+  // -----------------------------------------------------------------------
+  {
+    title:    'GLP-1 Downsell Funnel',
+    subtitle: 'Secondary — leads that don\'t qualify for surgery but buy GLP-1',
+    steps: [
+      { label: 'Landing Page CVR',         sublabel: 'Form submissions',
+        stageNames: '*ALL*' },
+      { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Qualify for GLP-1 downsell',
+        stageNames: ['GLP-1 Downsell', 'Won (GLP -1)'] },
+      { label: 'Close Rate',               sublabel: 'GLP-1 downsell closed',
+        stageNames: ['Won (GLP -1)'] }
+    ]
+  }
+];
 
 /**
  * Map a raw lead-category value to one of the configured stage names.
