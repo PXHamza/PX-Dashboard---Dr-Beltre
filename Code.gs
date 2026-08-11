@@ -42,7 +42,8 @@ function showDashboard() {
  *
  *   filters:
  *     preset       'Today' | 'Yesterday' | 'Last 7' | 'This Week' |
- *                  'Last Month' | 'Last 30' | 'Custom'
+ *                  'This Month' | 'Last Month' | 'Last 30' |
+ *                  'All Time' | 'Custom'
  *     fromIso      ISO date — used only when preset === 'Custom'
  *     toIso        ISO date — used only when preset === 'Custom'
  *     campaign     exact campaign name (or '')
@@ -63,6 +64,12 @@ function getDashboardPayload(filters) {
 
   const cur = applyFilters(data.rows, filters, range.from,      range.to);
   const pri = applyFilters(data.rows, filters, range.priorFrom, range.priorTo);
+
+  // Traffic metrics (Meta ad spend + outbound clicks) come from monthly
+  // sibling sheets named like "AUG - 2026" / "SEP - 2026". If no such
+  // sheets exist this returns zeros and the funnel's Total Clicks step
+  // (opt-in per client) still renders — just at zero.
+  const traffic = loadTrafficMetrics(range.from, range.to);
 
   return {
     brand:           CONFIG.BRAND,
@@ -102,7 +109,11 @@ function getDashboardPayload(filters) {
     formQuestions:       formInsights(cur),
     alerts:              computeAlerts(cur),
     topCreatives:        topCreatives(cur),
-    stages:              computeStages(cur)
+    stages:              computeStages(cur),
+    featuredMetrics:     computeFeaturedMetrics(cur),
+    noteBreakdowns:      computeNoteBreakdowns(cur),
+    funnels:             computeFunnels(cur, traffic),
+    traffic:             traffic
   };
 }
 
@@ -301,12 +312,22 @@ function resolveRange(preset, fromIso, toIso, dataMin, dataMax) {
       priorTo = eod(add(now, -7));     priorFrom = sod(add(now, -13));
       break;
     case 'This Week':
-      // Week starts Monday. JS Sunday = 0.
-      var dow = now.getDay() || 7;            // Sun → 7
-      from = sod(add(now, -(dow - 1)));       // Mon
-      to   = eod(now);
-      priorFrom = sod(add(from, -7));
-      priorTo   = eod(add(from, -1));
+      // Full calendar week, Monday through Sunday (regardless of what day
+      // it is today). Future days in the range simply have no data yet.
+      // JS getDay(): Sunday = 0, so Sunday maps to dow = 7 for Mon-first.
+      var dow = now.getDay() || 7;
+      from = sod(add(now, -(dow - 1)));       // Monday of this week
+      to   = eod(add(from, 6));               // Sunday of this week
+      priorFrom = sod(add(from, -7));         // Monday of last week
+      priorTo   = eod(add(from, -1));         // Sunday of last week
+      break;
+    case 'This Month':
+      // Full calendar month — 1st through last day, even if today is
+      // mid-month. Prior = full previous month.
+      from = sod(new Date(now.getFullYear(), now.getMonth(),     1));
+      to   = eod(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      priorFrom = sod(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+      priorTo   = eod(new Date(now.getFullYear(), now.getMonth(),     0));
       break;
     case 'Last Month':
       from = sod(new Date(now.getFullYear(), now.getMonth() - 1, 1));
@@ -790,6 +811,220 @@ function computeStages(rows) {
       lost:    lostCount,
       winRate: total ? wonCount / total : 0
     }
+  };
+}
+
+// =============================================================================
+// FEATURED METRICS + NOTE BREAKDOWNS  (opt-in per-client via Stages.gs)
+// =============================================================================
+
+/**
+ * Turn each FEATURED_METRICS entry into a KPI-card-ready object. Reads
+ * the config from Stages.gs; if FEATURED_METRICS is empty (the master
+ * default) this returns an empty array and the client hides the row.
+ */
+function computeFeaturedMetrics(rows) {
+  const total = rows.length;
+  const cfg = (typeof FEATURED_METRICS === 'undefined') ? [] : FEATURED_METRICS;
+  return cfg.map(function (m) {
+    const names = m.stageNames || [];
+    const count = rows.filter(function (r) {
+      return names.indexOf(r.stage) !== -1;
+    }).length;
+    return {
+      label: m.label || '',
+      color: m.color || 'blue',
+      as:    m.as    || 'pct',
+      count: count,
+      total: total,
+      pct:   safeDiv(count, total)
+    };
+  });
+}
+
+/**
+ * For each stage listed in NOTE_BREAKDOWN_STAGES, tally the distinct
+ * Sales-team notes on leads at that stage. Sorted by frequency, top 15.
+ *
+ * Useful for surfacing auto-DQ reasons ("Auto Unqualified - Under 30
+ * pounds") or downsell notes without any per-client parsing.
+ */
+function computeNoteBreakdowns(rows) {
+  const cfg = (typeof NOTE_BREAKDOWN_STAGES === 'undefined') ? [] : NOTE_BREAKDOWN_STAGES;
+  return cfg.map(function (stageName) {
+    const stageRows = rows.filter(function (r) { return r.stage === stageName; });
+    const counts = {};
+    stageRows.forEach(function (r) {
+      const note = (r.notes || '').toString().trim();
+      if (!note) return;
+      counts[note] = (counts[note] || 0) + 1;
+    });
+    const items = Object.keys(counts)
+      .map(function (k) { return { note: k, count: counts[k] }; })
+      .sort(function (a, b) { return b.count - a.count; })
+      .slice(0, 15);
+    return {
+      stageName:    stageName,
+      totalAtStage: stageRows.length,
+      withNotes:    stageRows.filter(function (r) { return r.notes; }).length,
+      items:        items
+    };
+  });
+}
+
+/**
+ * Turn each FUNNELS entry into a step-by-step count structure ready for
+ * the horizontal-funnel rendering on the Overview tab. Each step gets
+ * count + pctOfFirst + pctOfPrev + dropFromPrev.
+ *
+ * stageNames can be an array of stage names OR one of the shortcuts:
+ *   '*ALL*'       — count every row in the filtered set
+ *   '*QUALIFIED*' — count every row where isQualified() is true
+ */
+function computeFunnels(rows, traffic) {
+  const cfg = (typeof FUNNELS === 'undefined') ? [] : FUNNELS;
+  if (!cfg.length) return [];
+  const total = rows.length;
+  const qualifiedCount = rows.filter(function (r) { return r.qualified; }).length;
+  traffic = traffic || {};
+
+  return cfg.map(function (funnel) {
+    const steps = (funnel.steps || []).map(function (step) {
+      let count;
+      if (step.externalMetric) {
+        // Traffic-sourced step (e.g. 'clicks' from the monthly Meta tabs).
+        count = Number(traffic[step.externalMetric]) || 0;
+      } else if (step.stageNames === '*ALL*') {
+        count = total;
+      } else if (step.stageNames === '*QUALIFIED*') {
+        count = qualifiedCount;
+      } else {
+        const names = step.stageNames || [];
+        count = rows.filter(function (r) { return names.indexOf(r.stage) !== -1; }).length;
+      }
+      return {
+        label:    step.label,
+        sublabel: step.sublabel || '',
+        count:    count
+      };
+    });
+
+    // Bar heights scale to the first non-zero step so a zero "Total Clicks"
+    // step (missing traffic data) still lets subsequent steps render at
+    // sensible heights.
+    let baseCount = 0;
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i].count > 0) { baseCount = steps[i].count; break; }
+    }
+    steps.forEach(function (s, i) {
+      s.pctOfFirst = baseCount ? s.count / baseCount : 0;
+      // pctOfPrev is null (rather than 0) when the prior step had zero,
+      // so the client can render "—" instead of a misleading "0.0%".
+      s.pctOfPrev = (i === 0) ? null : (steps[i - 1].count > 0 ? s.count / steps[i - 1].count : null);
+      s.dropFromPrev = (i === 0) ? 0 : Math.max(0, steps[i - 1].count - s.count);
+    });
+
+    return {
+      title:    funnel.title || '',
+      subtitle: funnel.subtitle || '',
+      steps:    steps
+    };
+  });
+}
+
+// =============================================================================
+// TRAFFIC METRICS  (monthly "MMM - YYYY" sibling sheets)
+// =============================================================================
+
+/**
+ * Scan every sheet in the workbook whose name matches "MMM - YYYY"
+ * (e.g. "AUG - 2026", "SEP - 2026") and aggregate the Meta ad metrics
+ * for the requested date range. Each monthly tab is expected to follow
+ * the same layout:
+ *   - Row 4         Total row (we don't read it; we sum the daily rows
+ *                   ourselves so range filters apply correctly).
+ *   - Rows 5–35     One day per row. Row 5 = day 1, row 6 = day 2, etc.
+ *   - Column A      Date label ("Aug-1"). We derive the actual date from
+ *                   the sheet name's month/year + the row's day offset,
+ *                   so column A can be anything — even blank.
+ *   - Column N      CPM
+ *   - Column O      Ad Spend
+ *   - Column P      CPLC (cost per landing-page click)
+ *   - Column Q      Unique Outbound Clicks
+ *   - Column R      U.O. CTR (stored as a decimal, e.g. 0.0393 for 3.93%)
+ *
+ * Returns:
+ *   { adSpend, clicks, cplc, cpm, ctr, daysCounted, monthlySheetsFound }
+ * Missing / brand-new spreadsheet → all zeros.
+ */
+function loadTrafficMetrics(fromDate, toDate) {
+  const ss = SpreadsheetApp.getActive();
+  const MONTHS = { JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5,
+                   JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11 };
+  const pattern = /^\s*([A-Za-z]{3})\s*-\s*(\d{4})\s*$/;
+
+  let adSpend = 0, clicks = 0;
+  let cpmSum = 0, cpmDays = 0;
+  let ctrSum = 0, ctrDays = 0;
+  let daysCounted = 0;
+  let monthlySheetsFound = 0;
+
+  // Normalise the range boundaries so we don't miss edge days.
+  const fromMs = fromDate ? new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate()).getTime() : null;
+  const toMs   = toDate   ? new Date(toDate.getFullYear(),   toDate.getMonth(),   toDate.getDate(),   23, 59, 59, 999).getTime() : null;
+
+  ss.getSheets().forEach(function (sheet) {
+    const m = sheet.getName().match(pattern);
+    if (!m) return;
+    const monthIdx = MONTHS[m[1].toUpperCase()];
+    if (monthIdx == null) return;
+    const year = parseInt(m[2], 10);
+    if (isNaN(year)) return;
+    monthlySheetsFound++;
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 5) return;
+
+    const numRows = Math.min(31, lastRow - 4);
+    const values = sheet.getRange(5, 1, numRows, 18).getValues();  // cols A→R
+
+    for (let i = 0; i < values.length; i++) {
+      const day = i + 1;
+      const rowDate = new Date(year, monthIdx, day);
+      // Bail once the day rolls into the next month (e.g. Feb has < 31 days).
+      if (rowDate.getMonth() !== monthIdx) break;
+      const ms = rowDate.getTime();
+      if (fromMs !== null && ms < fromMs) continue;
+      if (toMs   !== null && ms > toMs)   continue;
+
+      const row = values[i];
+      const rowCpm    = Number(row[13]) || 0;   // N
+      const rowSpend  = Number(row[14]) || 0;   // O
+      const rowClicks = Number(row[16]) || 0;   // Q
+      const rowCtr    = Number(row[17]) || 0;   // R
+
+      // Skip rows with no meaningful data — likely blank future days.
+      if (rowSpend <= 0 && rowClicks <= 0) continue;
+
+      adSpend += rowSpend;
+      clicks  += rowClicks;
+      if (rowCpm > 0) { cpmSum += rowCpm; cpmDays++; }
+      if (rowCtr > 0) { ctrSum += rowCtr; ctrDays++; }
+      daysCounted++;
+    }
+  });
+
+  return {
+    adSpend: adSpend,
+    clicks:  clicks,
+    // CPLC is exact: total spend ÷ total clicks. Never fabricate a value.
+    cplc: clicks > 0 ? adSpend / clicks : 0,
+    // CPM & CTR need impression counts to weight properly; we don't have
+    // those, so we use simple averages of the days that actually had data.
+    cpm: cpmDays > 0 ? cpmSum / cpmDays : 0,
+    ctr: ctrDays > 0 ? ctrSum / ctrDays : 0,
+    daysCounted:        daysCounted,
+    monthlySheetsFound: monthlySheetsFound
   };
 }
 
