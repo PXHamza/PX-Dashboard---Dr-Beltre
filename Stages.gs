@@ -70,6 +70,36 @@ const NOTE_BREAKDOWN_STAGES = [
 ];
 
 /**
+ * FUNNELS — optional per-client list of sales funnels rendered as
+ * horizontal step-diagrams on the Overview tab (Klaviyo-style: big
+ * number, label, % of prior, tapering bar chart).
+ *
+ * Each funnel:
+ *   title    (string, required) Panel heading.
+ *   subtitle (string, optional) One-line description under the heading.
+ *   steps    (object[], required) Ordered stages, top of funnel first.
+ *
+ * Each step:
+ *   label      (string, required) Big label for the step.
+ *   sublabel   (string, optional) Small caption under the label.
+ *   stageNames Either an array of STAGES names to count, or one of
+ *              the shorthand strings:
+ *                '*ALL*'       — every lead in the filtered set
+ *                '*QUALIFIED*' — every qualified lead (isQualified)
+ *   externalMetric (string, optional) An alternative to stageNames. Pulls
+ *              the count from the traffic-metrics payload rather than
+ *              the leads set. Currently supported keys:
+ *                'clicks'  — unique outbound clicks from Meta monthly
+ *                            tabs (see loadTrafficMetrics in Code.gs).
+ *                'adSpend' — total ad spend from Meta monthly tabs.
+ *
+ * The dashboard computes count + % of first step + % of prior step +
+ * absolute drop for each step, no extra config required. Leave empty
+ * [] to hide the funnels section entirely.
+ */
+const FUNNELS = [];
+
+/**
  * Map a raw lead-category value to one of the configured stage names.
  * Returns 'Other' if nothing matches.
  */
