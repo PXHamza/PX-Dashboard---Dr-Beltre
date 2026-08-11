@@ -141,6 +141,54 @@
     .chart-wrap.short      { height: 200px; }
     .chart-wrap.donut      { height: 240px; }
 
+    /* ---------- Horizontal sales funnel (Overview tab) ---------- */
+    /* One column per step. Text stack on top, tapering bar at the bottom.
+       Bar heights are proportional to pctOfFirst so the funnel silhouette
+       reads left-to-right. */
+    .funnel-panel { margin-top: 16px; }
+    .funnel-panel:first-child { margin-top: 0; }
+    .funnel {
+      display: grid; gap: 1px;
+      grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr);
+      margin-top: 14px;
+      background: var(--border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .funnel-step {
+      padding: 14px 14px 0; background: var(--card);
+      display: flex; flex-direction: column;
+    }
+    .funnel-step .value {
+      font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .funnel-step .label {
+      font-size: 12px; font-weight: 700; color: var(--text);
+      margin-top: 4px;
+    }
+    .funnel-step .sublabel {
+      font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.35;
+    }
+    .funnel-step .caption {
+      font-size: 11px; color: var(--muted); margin-top: 8px;
+    }
+    .funnel-step .caption .drop { color: var(--red); margin-left: 6px; }
+    .funnel-step .caption .first { color: var(--green); font-weight: 700; }
+    .funnel-bar-container {
+      height: 90px; margin-top: auto; padding-top: 10px;
+      display: flex; align-items: flex-end;
+    }
+    .funnel-bar-fill {
+      width: 100%; min-height: 3px;
+      background: linear-gradient(180deg, #3B82F6, #1E4A8C);
+      border-radius: 3px 3px 0 0;
+    }
+    /* GLP-1 / secondary funnel gets a different fill so both funnels
+       are visually distinct. */
+    .funnel.secondary .funnel-bar-fill {
+      background: linear-gradient(180deg, var(--accent), #7A1A66);
+    }
+
     /* ---------- Tables ---------- */
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -275,24 +323,54 @@
 <!-- ===== Tabs ===== -->
 <div class="tabs" id="tabs">
   <div class="tab active" data-tab="overview">📊 Overview</div>
-  <div class="tab"        data-tab="stages">📈 Funnel Stages</div>
+  <div class="tab"        data-tab="forms">📝 Form Insights</div>
+  <div class="tab"        data-tab="variants">🧪 Page Variants</div>
+  <div class="tab"        data-tab="creatives">🏆 Top Creatives</div>
+  <div class="tab"        data-tab="metrics">📈 Metrics</div>
   <div class="tab"        data-tab="campaigns">🎯 Campaigns</div>
   <div class="tab"        data-tab="adsets">📦 Ad Sets</div>
   <div class="tab"        data-tab="ads">🖼️ Ads</div>
-  <div class="tab"        data-tab="creatives">🏆 Top Creatives</div>
-  <div class="tab"        data-tab="variants">🧪 Page Variants</div>
-  <div class="tab"        data-tab="errors">⚠️ Errors</div>
-  <div class="tab"        data-tab="forms">📝 Form Insights</div>
   <div class="tab"        data-tab="alerts">🚨 Alerts</div>
+  <div class="tab"        data-tab="errors">⚠️ Errors</div>
 </div>
 
 <div class="content">
 
   <!-- ============================================================ Overview -->
+  <!-- Overview = client sales funnels (from FUNNELS in Stages.gs) plus
+       the funnel-stage summary that used to live on its own tab. The
+       traditional KPI + charts view moved to the "Metrics" tab below. -->
   <div class="pane active" id="pane-overview">
+    <!-- Per-client sales funnels. Hidden entirely when FUNNELS is empty. -->
+    <div id="overviewFunnels"></div>
+
+    <!-- Funnel-stage summary (formerly its own tab). -->
+    <div class="grid grid-4" id="stagesSummary" style="margin-top:16px; margin-bottom:16px;"></div>
+    <div class="grid grid-2-1" style="margin-bottom:16px;">
+      <div class="panel">
+        <h3>Stage Distribution</h3>
+        <div class="sub">Leads at each stage, in CRM order. Bar length is count; hover for % of total.</div>
+        <div class="chart-wrap" id="stagesChartWrap"><canvas id="chartStages"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Pipeline Status</h3>
+        <div class="sub">Active vs Won vs Lost.</div>
+        <div class="chart-wrap donut"><canvas id="chartStagesPie"></canvas></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Stage Breakdown</h3>
+      <div class="sub">Counts, % of total, and stage-to-stage change. Note: terminal/branch stages (Cancelled, No-show, etc.) inflate adjacent retention numbers — interpret as directional, not exact.</div>
+      <div id="stagesTable"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ Metrics -->
+  <!-- Everything the old Overview tab used to show — KPI cards with
+       deltas, quality donut, daily volume, campaign-quality stack,
+       and any per-client featured metrics / note breakdowns. -->
+  <div class="pane" id="pane-metrics">
     <div class="grid grid-5" id="kpiStrip"></div>
-    <!-- Featured metrics — extra per-client KPI cards defined in Stages.gs.
-         Hidden entirely when FEATURED_METRICS is empty. -->
     <div id="featuredMetrics" style="margin-top: 12px;"></div>
     <div class="legend" id="qualityLegend"></div>
     <div class="grid grid-2-1" style="margin-top: 6px;">
@@ -312,31 +390,7 @@
       <div class="sub">Top 10 Campaign IDs. Each bar = 100% of that campaign's leads.</div>
       <div class="chart-wrap"><canvas id="chartByCampaign"></canvas></div>
     </div>
-    <!-- Sales-team-notes breakdowns — one panel per stage listed in
-         NOTE_BREAKDOWN_STAGES. Hidden entirely when that list is empty. -->
     <div id="noteBreakdowns" style="margin-top: 16px;"></div>
-  </div>
-
-  <!-- ============================================================ Funnel Stages -->
-  <div class="pane" id="pane-stages">
-    <div class="grid grid-4" id="stagesSummary" style="margin-bottom:16px;"></div>
-    <div class="grid grid-2-1" style="margin-bottom:16px;">
-      <div class="panel">
-        <h3>Stage Distribution</h3>
-        <div class="sub">Leads at each stage, in CRM order. Bar length is count; hover for % of total.</div>
-        <div class="chart-wrap" id="stagesChartWrap"><canvas id="chartStages"></canvas></div>
-      </div>
-      <div class="panel">
-        <h3>Pipeline Status</h3>
-        <div class="sub">Active vs Won vs Lost.</div>
-        <div class="chart-wrap donut"><canvas id="chartStagesPie"></canvas></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h3>Stage Breakdown</h3>
-      <div class="sub">Counts, % of total, and stage-to-stage change. Note: terminal/branch stages (Cancelled, No-show, etc.) inflate adjacent retention numbers — interpret as directional, not exact.</div>
-      <div id="stagesTable"></div>
-    </div>
   </div>
 
   <!-- ============================================================ Campaigns -->
@@ -400,10 +454,14 @@
         <div class="sub">Volume, quality, sales, revenue and close rate by landing-page variant.</div>
         <div id="variantTable"></div>
       </div>
-      <div class="panel"><h3>Close Rate by Variant</h3>
-        <div class="sub">Higher = better.</div>
-        <div class="chart-wrap"><canvas id="chartVariant"></canvas></div>
+      <div class="panel"><h3>Traffic Share by Variant</h3>
+        <div class="sub">Share of total leads per variant. Hover for count + %.</div>
+        <div class="chart-wrap donut"><canvas id="chartVariantPie"></canvas></div>
       </div>
+    </div>
+    <div class="panel" style="margin-top: 16px;"><h3>Close Rate by Variant</h3>
+      <div class="sub">Higher = better.</div>
+      <div class="chart-wrap"><canvas id="chartVariant"></canvas></div>
     </div>
   </div>
 
@@ -599,15 +657,19 @@ function renderTab(name) {
   const p = PAYLOAD;
   switch (name) {
     case 'overview':
+      // Overview now = per-client sales funnels + funnel-stage summary.
+      paintFunnels(p.funnels);
+      paintStages(p.stages);
+      break;
+    case 'metrics':
+      // What the old Overview showed.
       drawDailyChart(p.daily);
       drawDonut(p.qualityBreakdown);
       drawByCampaign(p.qualityByCampaign);
       break;
-    case 'stages':
-      paintStages(p.stages);
-      break;
     case 'variants':
       drawVariantBar(p.pageVariantTable);
+      drawVariantPie(p.pageVariantTable);
       break;
     case 'creatives':
       paintTopCreatives(p.topCreatives);
@@ -898,14 +960,53 @@ function drawByCampaign(qbc) {
 
 function drawVariantBar(rows) {
   destroy('chartVariant');
+  // rollupComposite returns each row with `parts: [<variant>]`; use parts[0]
+  // as the label (older versions of this function referenced r.key which
+  // rollupComposite doesn't emit — the bars were rendering unlabelled).
   CHARTS.chartVariant = new Chart(document.getElementById('chartVariant').getContext('2d'), {
     type: 'bar',
-    data: { labels: rows.map(r => r.key),
+    data: { labels: rows.map(r => r.parts[0]),
             datasets: [{ label: 'Close Rate', data: rows.map(r => r.closeRate * 100),
                          backgroundColor: '#10B981', borderRadius: 6 }] },
     options: {
       plugins: { legend: { display: false } },
       scales: { x: AXIS, y: { ticks: { color: '#8993A8', callback: v => v + '%' }, grid: { color: '#243149' }, beginAtZero: true } }
+    }
+  });
+}
+
+// Traffic-share pie: one slice per page variant, sized by lead count.
+// Hover surfaces the raw count + % of total.
+function drawVariantPie(rows) {
+  destroy('chartVariantPie');
+  if (!rows || !rows.length) return;
+  const palette = ['#FF2BD6', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#EF4444', '#7AE7FF', '#3DDC97', '#FFC857'];
+  const total = rows.reduce((s, r) => s + (r.leads || 0), 0);
+  CHARTS.chartVariantPie = new Chart(document.getElementById('chartVariantPie').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: rows.map(r => r.parts[0]),
+      datasets: [{
+        data: rows.map(r => r.leads),
+        backgroundColor: rows.map((_, i) => palette[i % palette.length]),
+        borderColor: '#131B2E',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      cutout: '55%',
+      plugins: {
+        legend: Object.assign({ position: 'right' }, LEGEND),
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v   = Number(ctx.parsed) || 0;
+              const pct = total ? ((v / total) * 100).toFixed(1) : '0';
+              return ctx.label + ': ' + v.toLocaleString('en-US') + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
     }
   });
 }
@@ -1046,6 +1147,45 @@ function paintMissingTable(elId, rows) {
       '<td style="color:var(--muted)">' + escapeHtml(r.email) + '</td>' +
       '<td style="color:var(--amber)">' + escapeHtml(r.reason) + '</td>' +
     '</tr>').join('') + '</tbody></table></div>';
+}
+
+// ----- Sales funnels (Overview tab) ----------------------------------------
+// One panel per funnel defined in Stages.gs FUNNELS. Each panel is a
+// horizontal row of stage columns: big number, label, sublabel, and the
+// step-to-step % (or "100% start" on the first). The vertical bar at
+// the bottom of each column is proportional to that step's share of
+// the FIRST step, giving a Klaviyo-style tapering funnel shape.
+function paintFunnels(funnels) {
+  const root = document.getElementById('overviewFunnels');
+  if (!funnels || !funnels.length) { root.innerHTML = ''; return; }
+  root.innerHTML = funnels.map((f, fi) => {
+    const cls = 'funnel' + (fi > 0 ? ' secondary' : '');
+    const steps = f.steps.map((s, i) => {
+      // Bar height as % of the wrapper. Force a small minimum so even
+      // zero-count steps show a sliver.
+      const heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
+      const caption = i === 0
+        ? '<span class="first">100% start</span>'
+        : fmt.pct(s.pctOfPrev) + ' of prior' +
+          (s.dropFromPrev > 0 ? '<span class="drop">−' + fmt.int(s.dropFromPrev) + ' dropped</span>' : '');
+      return `
+        <div class="funnel-step">
+          <div class="value">${fmt.int(s.count)}</div>
+          <div class="label">${escapeHtml(s.label)}</div>
+          ${s.sublabel ? '<div class="sublabel">' + escapeHtml(s.sublabel) + '</div>' : ''}
+          <div class="caption">${caption}</div>
+          <div class="funnel-bar-container">
+            <div class="funnel-bar-fill" style="height:${heightPct}%"></div>
+          </div>
+        </div>`;
+    }).join('');
+    return `
+      <div class="panel funnel-panel">
+        <h3>${escapeHtml(f.title)}</h3>
+        ${f.subtitle ? '<div class="sub">' + escapeHtml(f.subtitle) + '</div>' : ''}
+        <div class="${cls}">${steps}</div>
+      </div>`;
+  }).join('');
 }
 
 // ----- Funnel Stages -------------------------------------------------------
