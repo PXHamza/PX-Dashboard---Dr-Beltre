@@ -143,8 +143,14 @@ const FUNNELS = [
   // -----------------------------------------------------------------------
   {
     title:    'Booked Surgery Funnel',
-    subtitle: 'Northstar — form submission → surgery booked with Dr Beltre',
+    subtitle: 'Northstar — Meta click → surgery booked with Dr Beltre',
     steps: [
+      // externalMetric='clicks' pulls the count from loadTrafficMetrics
+      // (monthly "MMM - YYYY" sheets). Adding this step here makes
+      // "Landing Page CVR" show the true click-to-lead rate as its
+      // "% of prior".
+      { label: 'Total Clicks',           sublabel: 'Meta outbound clicks',
+        externalMetric: 'clicks' },
       { label: 'Landing Page CVR',       sublabel: 'Form submissions',
         stageNames: '*ALL*' },
       { label: 'Good Fit Lead in Funnel', sublabel: 'Pass qualification',
@@ -177,6 +183,8 @@ const FUNNELS = [
     title:    'GLP-1 Downsell Funnel',
     subtitle: 'Secondary — leads that don\'t qualify for surgery but buy GLP-1',
     steps: [
+      { label: 'Total Clicks',             sublabel: 'Meta outbound clicks',
+        externalMetric: 'clicks' },
       { label: 'Landing Page CVR',         sublabel: 'Form submissions',
         stageNames: '*ALL*' },
       { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Qualify for GLP-1 downsell',
