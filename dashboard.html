@@ -1187,21 +1187,26 @@ function paintMissingTable(elId, rows) {
 // ----- Sales funnels (Overview tab) ----------------------------------------
 // One panel per funnel defined in Stages.gs FUNNELS. Each panel is a
 // horizontal row of stage columns: big number, label, sublabel, and the
-// step-to-step % (or "100% start" on the first). The vertical bar at
-// the bottom of each column is proportional to that step's share of
-// the FIRST step, giving a Klaviyo-style tapering funnel shape.
+// step-to-step % (this-step / prior-step). The first step is always
+// "100.0%" (baseline). The vertical bar at the bottom of each column is
+// proportional to that step's share of the FIRST step, giving a
+// Klaviyo-style tapering funnel shape — so bar heights still show the
+// overall funnel taper while the percentage number shows the immediate
+// step-to-step conversion the client cares about.
 function paintFunnels(funnels) {
   const root = document.getElementById('overviewFunnels');
   if (!funnels || !funnels.length) { root.innerHTML = ''; return; }
   root.innerHTML = funnels.map((f, fi) => {
     const cls = 'funnel' + (fi > 0 ? ' secondary' : '');
     const steps = f.steps.map((s, i) => {
-      // Bar height as % of the wrapper. Force a small minimum so even
-      // zero-count steps show a sliver.
+      // Bar height still tapers relative to the first step.
       const heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
-      // Percentage displayed under the number = % of first step
-      // (Klaviyo-style). First step is always 100%.
-      const pctText = fmt.pct(s.pctOfFirst || 0);
+      // Percentage below the number = step-to-step conversion
+      // (this / prior). First step is baseline 100%. If the prior step
+      // was zero, pctOfPrev is null → render "—" (never "0.0%").
+      const pctText = (i === 0)
+        ? '100.0%'
+        : (s.pctOfPrev == null ? '—' : fmt.pct(s.pctOfPrev));
       // Optional monthly-sheet KPI shown under the sublabel. Rendered as
       //   KPI: <label> <value>
       // (per client request — no colon between label and value). Missing
