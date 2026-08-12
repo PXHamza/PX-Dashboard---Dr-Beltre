@@ -118,9 +118,10 @@ const NOTE_BREAKDOWN_STAGES = [
  *                'clicks'  — unique outbound clicks from Meta monthly
  *                            tabs (see loadTrafficMetrics in Code.gs).
  *                'adSpend' — total ad spend from Meta monthly tabs.
- *   kpiColumn  (string, optional) Column letter (e.g. 'F', 'H') whose
- *              row-4 value on the latest overlapping monthly sheet is
- *              displayed as an extra KPI line under the sublabel. If
+ *   kpiColumn  (string, optional) Column letter (e.g. 'Q', 'AB') whose
+ *              row-3 value on the latest overlapping monthly sheet is
+ *              displayed as an extra KPI line under the sublabel.
+ *              (Row 3 in these sheets holds the "Target KPIs" row.) If
  *              the cell is empty the card shows "-" — no fabrication.
  *   kpiLabel   (string, optional) Prefix for the KPI line, e.g.
  *              "Cost / booked call". Defaults to "KPI".
