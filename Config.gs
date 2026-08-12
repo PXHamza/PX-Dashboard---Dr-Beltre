@@ -67,15 +67,16 @@ const CONFIG = {
     // this column's =IMAGE() formula. Leave as '' to disable.
     adPreviewUrl:        'V',            // V — Ad Preview Link
     adThumbnailUrl:      'W',            // W — Creative Preview Link (direct image URL)
-    adThumbnailFallback: 'X',            // X — Ad Thumbnail (=IMAGE — used for video creatives)
+    adThumbnailFallback: '',             // (disabled — col X is now Lead Category 2.0;
+                                         //  set to a column letter here if a video-
+                                         //  thumbnail =IMAGE column is added back.)
 
-    // ---- GLP-1 Downsell flag column -----------------------------------
-    // Auto-populated column whose value equals "GLP-1 Downsell" for leads
-    // routed into the GLP-1 downsell path at form submission. Referenced
-    // by the same column the tracker-sheet COUNTIFS formulas point at —
-    // update the letter here if the column moves in the Lead Data tab.
-    // Set to '' to disable exclusion (dashboard will then count GLP-1
-    // leads inside the surgery funnel).
+    // ---- Lead Category 2.0 (GLP-1 Downsell flag) ----------------------
+    // Column X in Lead Data. Auto-populated at form submission; its value
+    // equals "GLP-1 Downsell" for leads routed to the GLP-1 downsell
+    // track. Referenced by the tracker-sheet COUNTIFS formulas so the
+    // dashboard uses the same field to keep the Booked Surgery and GLP-1
+    // funnels separate (surgery excludes it, GLP-1 requires it).
     glpDownsellFlag:     'X'
   },
 
