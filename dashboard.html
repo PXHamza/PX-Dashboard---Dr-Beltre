@@ -1202,11 +1202,13 @@ function paintFunnels(funnels) {
       // Percentage displayed under the number = % of first step
       // (Klaviyo-style). First step is always 100%.
       const pctText = fmt.pct(s.pctOfFirst || 0);
-      // Optional row-4 monthly-sheet KPI shown under the sublabel.
-      // Missing values render as "-" — never fabricated.
+      // Optional monthly-sheet KPI shown under the sublabel. Rendered as
+      //   KPI: <label> <value>
+      // (per client request — no colon between label and value). Missing
+      // values render as "-" — never fabricated.
       const kpiLine = s.kpi
-        ? '<div class="kpi-line">' +
-          escapeHtml(s.kpi.label) + ': ' +
+        ? '<div class="kpi-line">KPI: ' +
+          escapeHtml(s.kpi.label) + ' ' +
           '<span class="kpi-val">' + fmtKpi(s.kpi.value, s.kpi.format) + '</span>' +
         '</div>'
         : '';
