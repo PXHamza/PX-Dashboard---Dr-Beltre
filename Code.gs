@@ -70,6 +70,10 @@ function getDashboardPayload(filters) {
   // sheets exist this returns zeros and the funnel's Total Clicks step
   // (opt-in per client) still renders — just at zero.
   const traffic = loadTrafficMetrics(range.from, range.to);
+  // Pull row-4 KPI values from the NEWEST monthly sheet whose calendar
+  // month overlaps the current date range. Funnel steps reference these
+  // via kpiColumn in Stages.gs FUNNELS config.
+  const monthlyKpis = loadLatestMonthKpis(range.from, range.to);
 
   return {
     brand:           CONFIG.BRAND,
@@ -112,8 +116,9 @@ function getDashboardPayload(filters) {
     stages:              computeStages(cur),
     featuredMetrics:     computeFeaturedMetrics(cur),
     noteBreakdowns:      computeNoteBreakdowns(cur),
-    funnels:             computeFunnels(cur, traffic),
-    traffic:             traffic
+    funnels:             computeFunnels(cur, traffic, monthlyKpis),
+    traffic:             traffic,
+    monthlyKpis:         monthlyKpis
   };
 }
 
@@ -881,12 +886,13 @@ function computeNoteBreakdowns(rows) {
  *   '*ALL*'       — count every row in the filtered set
  *   '*QUALIFIED*' — count every row where isQualified() is true
  */
-function computeFunnels(rows, traffic) {
+function computeFunnels(rows, traffic, monthlyKpis) {
   const cfg = (typeof FUNNELS === 'undefined') ? [] : FUNNELS;
   if (!cfg.length) return [];
   const total = rows.length;
   const qualifiedCount = rows.filter(function (r) { return r.qualified; }).length;
   traffic = traffic || {};
+  const row4 = (monthlyKpis && monthlyKpis.row4) ? monthlyKpis.row4 : {};
 
   return cfg.map(function (funnel) {
     const steps = (funnel.steps || []).map(function (step) {
@@ -902,11 +908,24 @@ function computeFunnels(rows, traffic) {
         const names = step.stageNames || [];
         count = rows.filter(function (r) { return names.indexOf(r.stage) !== -1; }).length;
       }
-      return {
+      const out = {
         label:    step.label,
         sublabel: step.sublabel || '',
         count:    count
       };
+      // Optional per-step KPI pulled from row 4 of the latest overlapping
+      // monthly sheet. If the cell is blank the client renders "-" and
+      // never fabricates a value.
+      if (step.kpiColumn) {
+        const raw = row4[String(step.kpiColumn).toUpperCase()];
+        const isBlank = (raw == null || raw === '');
+        out.kpi = {
+          label:  step.kpiLabel  || 'KPI',
+          format: step.kpiFormat || 'raw',
+          value:  isBlank ? null : raw
+        };
+      }
+      return out;
     });
 
     // Bar heights scale to the first non-zero step so a zero "Total Clicks"
@@ -1026,6 +1045,65 @@ function loadTrafficMetrics(fromDate, toDate) {
     daysCounted:        daysCounted,
     monthlySheetsFound: monthlySheetsFound
   };
+}
+
+/**
+ * Find the NEWEST monthly "MMM - YYYY" sheet whose calendar month overlaps
+ * the requested date range, then return its row-4 values keyed by column
+ * letter (A, B, ..., Z, AA, ...). Row 4 in these sheets holds the total
+ * KPIs (Cost Per Lead, Cost per booked call, ROI, etc.) — the funnel
+ * steps display these under each card via kpiColumn in FUNNELS config.
+ *
+ * "Overlaps" = the month contains at least one day in [fromDate..toDate].
+ * When a range spans two months (e.g. 20-Jul → 10-Aug) the LATEST month
+ * wins (Aug), per the client's spec.
+ *
+ * Returns { sheetName, row4: { A: ..., B: ..., ... } } or {} if none.
+ */
+function loadLatestMonthKpis(fromDate, toDate) {
+  const ss = SpreadsheetApp.getActive();
+  const MONTHS = { JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5,
+                   JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11 };
+  const pattern = /^\s*([A-Za-z]{3})\s*-\s*(\d{4})\s*$/;
+
+  let bestSheet = null;
+  let bestScore = -1;
+  let bestName  = '';
+
+  ss.getSheets().forEach(function (sheet) {
+    const m = sheet.getName().match(pattern);
+    if (!m) return;
+    const monthIdx = MONTHS[m[1].toUpperCase()];
+    if (monthIdx == null) return;
+    const year = parseInt(m[2], 10);
+    if (isNaN(year)) return;
+
+    const monthStart = new Date(year, monthIdx,     1);
+    const monthEnd   = new Date(year, monthIdx + 1, 0, 23, 59, 59, 999);
+
+    // Overlap check.
+    if (fromDate && monthEnd   < fromDate) return;
+    if (toDate   && monthStart > toDate)   return;
+
+    // "Latest month wins" — score by year*12 + month.
+    const score = year * 12 + monthIdx;
+    if (score > bestScore) {
+      bestScore = score;
+      bestSheet = sheet;
+      bestName  = sheet.getName();
+    }
+  });
+
+  if (!bestSheet) return {};
+
+  const lastCol = bestSheet.getLastColumn();
+  if (lastCol < 1) return { sheetName: bestName, row4: {} };
+  const values = bestSheet.getRange(4, 1, 1, lastCol).getValues()[0];
+  const row4 = {};
+  for (let i = 0; i < values.length; i++) {
+    row4[colLetter(i + 1)] = values[i];
+  }
+  return { sheetName: bestName, row4: row4 };
 }
 
 // =============================================================================

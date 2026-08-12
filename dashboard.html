@@ -162,18 +162,25 @@
       font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
       color: var(--text);
     }
+    /* % of first, directly below the big number. First step is 100%. */
+    .funnel-step .pct {
+      font-size: 12.5px; font-weight: 700; color: var(--green);
+      margin-top: 2px;
+    }
     .funnel-step .label {
       font-size: 12px; font-weight: 700; color: var(--text);
-      margin-top: 4px;
+      margin-top: 8px;
     }
     .funnel-step .sublabel {
       font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.35;
     }
-    .funnel-step .caption {
-      font-size: 11px; color: var(--muted); margin-top: 8px;
+    /* Row-4 monthly-sheet KPI line under the sublabel. */
+    .funnel-step .kpi-line {
+      font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.35;
     }
-    .funnel-step .caption .drop { color: var(--red); margin-left: 6px; }
-    .funnel-step .caption .first { color: var(--green); font-weight: 700; }
+    .funnel-step .kpi-line .kpi-val {
+      color: var(--text); font-weight: 700;
+    }
     .funnel-bar-container {
       height: 90px; margin-top: auto; padding-top: 10px;
       display: flex; align-items: flex-end;
@@ -1192,21 +1199,24 @@ function paintFunnels(funnels) {
       // Bar height as % of the wrapper. Force a small minimum so even
       // zero-count steps show a sliver.
       const heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
-      // pctOfPrev is null when the prior step had zero — e.g. Total
-      // Clicks step returns 0 because no monthly sheet data is loaded
-      // yet. Show "—" instead of a misleading 0.0%.
-      const caption = i === 0
-        ? '<span class="first">100% start</span>'
-        : (s.pctOfPrev == null
-            ? '<span style="opacity:0.6">— no prior data</span>'
-            : fmt.pct(s.pctOfPrev) + ' of prior' +
-              (s.dropFromPrev > 0 ? '<span class="drop">−' + fmt.int(s.dropFromPrev) + ' dropped</span>' : ''));
+      // Percentage displayed under the number = % of first step
+      // (Klaviyo-style). First step is always 100%.
+      const pctText = fmt.pct(s.pctOfFirst || 0);
+      // Optional row-4 monthly-sheet KPI shown under the sublabel.
+      // Missing values render as "-" — never fabricated.
+      const kpiLine = s.kpi
+        ? '<div class="kpi-line">' +
+          escapeHtml(s.kpi.label) + ': ' +
+          '<span class="kpi-val">' + fmtKpi(s.kpi.value, s.kpi.format) + '</span>' +
+        '</div>'
+        : '';
       return `
         <div class="funnel-step">
           <div class="value">${fmt.int(s.count)}</div>
+          <div class="pct">${pctText}</div>
           <div class="label">${escapeHtml(s.label)}</div>
           ${s.sublabel ? '<div class="sublabel">' + escapeHtml(s.sublabel) + '</div>' : ''}
-          <div class="caption">${caption}</div>
+          ${kpiLine}
           <div class="funnel-bar-container">
             <div class="funnel-bar-fill" style="height:${heightPct}%"></div>
           </div>
@@ -1219,6 +1229,22 @@ function paintFunnels(funnels) {
         <div class="${cls}">${steps}</div>
       </div>`;
   }).join('');
+}
+
+// Format helper for row-4 KPI values pulled from monthly sheets.
+// Null / blank → "-" (never fabricate). Otherwise apply the named format.
+function fmtKpi(value, format) {
+  if (value == null || value === '' || value === '-') return '-';
+  const num = Number(value);
+  if (isNaN(num)) return String(value);
+  switch (format) {
+    case 'money':  return '$' + Math.round(num).toLocaleString('en-US');
+    case 'money2': return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    case 'pct':    return (num * 100).toFixed(1) + '%';
+    case 'int':    return Math.round(num).toLocaleString('en-US');
+    case 'ratio':  return num.toFixed(2) + 'x';
+    default:       return String(value);
+  }
 }
 
 // ----- Funnel Stages -------------------------------------------------------
