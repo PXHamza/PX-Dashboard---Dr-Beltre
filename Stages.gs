@@ -177,23 +177,32 @@ const FUNNELS = [
       // (monthly "MMM - YYYY" sheets). This makes "Landing Page CVR" show
       // the true click-to-lead rate as its "% of prior".
       //
-      // Each step also references a row-4 KPI column from the newest
-      // monthly sheet in the range — the funnel card renders it under
-      // the sublabel. Column letters match the Aug-2026 sheet layout:
-      //   D  Cost Per Lead
-      //   E  Cost Per Qualified Lead
-      //   F  Cost per booked call
-      //   G  Cost Per Show Up
-      //   H  Cost Per Qual. Show Up
-      //   I  Customer Acquisition
-      //   O  Ad Spend
-      // If a cell in row 4 is blank, the card shows "-" (never fabricated).
+      // Each step also references a ROW-3 (Target KPIs) column from the
+      // newest monthly sheet in the range. The card renders it as
+      // "Target: <value>" under the sublabel. Full row-3 column map:
+      //   D  Cost Per Lead           M  (blank)               W  # Booked Consults
+      //   E  Cost Per Qualified Lead N  CPM                   X  # of Consults Due
+      //   F  Cost per booked call    O  Ad Spend              Y  # of Show ups
+      //   G  Cost Per Show Up        P  CPLC                  Z  # of qualified show ups
+      //   H  Cost Per Qual. Show Up  Q  U. Outbound Clicks    AA # of new GLP-1
+      //   I  CAC                     R  U.O. CTR              AB # of new Surgeries
+      //   J  Total pipeline gen.     T  # of Leads            AD % Landing Page Conversion
+      //   K  Total Revenue closed    U  # of Qualified Leads  AE % Qualified lead rate
+      //   L  ROI                     V  # of GLP-1 Downsell   AF % GLP-1 Downsell rate
+      //                                                       AG % good fit → book consult
+      //                                                       AH % show up rate
+      //                                                       AI % Qualified from show ups
+      //                                                       AJ % Close Rate (GLP-1)
+      //                                                       AK % Close Rate (Surgery)
+      // Column mapping below uses the count-type target columns (Q, T, U,
+      // W, Y, Z, AB) so each step shows the target count for that step.
+      // If a row-3 cell is blank the card shows "-" (never fabricated).
       { label: 'Total Clicks',            sublabel: 'Meta outbound clicks',
         externalMetric: 'clicks',
-        kpiColumn: 'O',  kpiLabel: 'Ad Spend',              kpiFormat: 'money' },
+        kpiColumn: 'Q',  kpiLabel: 'Target clicks',        kpiFormat: 'int' },
       { label: 'Landing Page CVR',        sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*',
-        kpiColumn: 'D',  kpiLabel: 'Cost / lead',           kpiFormat: 'money2' },
+        kpiColumn: 'T',  kpiLabel: 'Target leads',         kpiFormat: 'int' },
       // Good Fit for SURGERY. Explicit include-list — safer than
       // *QUALIFIED* which would leave GLP-1 leads in (they're not
       // "unqualified", they're just on a different track).
@@ -201,28 +210,28 @@ const FUNNELS = [
         stageNames: ['New Lead', 'Tried Contacting', 'Booked Consult',
                      'Booked Surgery', 'Qualified (Moving Forward)',
                      'Lost', 'Waiting for Finance', 'No Show'],
-        kpiColumn: 'E',  kpiLabel: 'Cost / qualified lead', kpiFormat: 'money2' },
+        kpiColumn: 'U',  kpiLabel: 'Target qual leads',    kpiFormat: 'int' },
       { label: 'Calendar Bookings',       sublabel: 'Booked a consult (cumulative)',
         stageNames: ['Booked Consult', 'Booked Surgery',
                      'Qualified (Moving Forward)', 'Lost',
                      'Waiting for Finance', 'No Show'],
-        kpiColumn: 'F',  kpiLabel: 'Cost / booked call',    kpiFormat: 'money2' },
+        kpiColumn: 'W',  kpiLabel: 'Target bookings',      kpiFormat: 'int' },
       { label: 'Show Up Rate',            sublabel: 'Attended initial consult',
         stageNames: ['Booked Surgery', 'Qualified (Moving Forward)',
                      'Lost', 'Waiting for Finance'],
-        kpiColumn: 'G',  kpiLabel: 'Cost / show up',        kpiFormat: 'money2' },
+        kpiColumn: 'Y',  kpiLabel: 'Target show ups',      kpiFormat: 'int' },
       { label: 'Good Fit Post Consult',   sublabel: 'Booked to meet Beltre',
         stageNames: ['Booked Surgery', 'Qualified (Moving Forward)',
                      'Lost', 'Waiting for Finance'],
-        kpiColumn: 'H',  kpiLabel: 'Cost / qual. show up',  kpiFormat: 'money2' },
+        kpiColumn: 'Z',  kpiLabel: 'Target qual show ups', kpiFormat: 'int' },
       { label: 'Show Up To Beltre',       sublabel: 'Met Beltre (excl. pre-meeting)',
         stageNames: ['Booked Surgery', 'Lost', 'Waiting for Finance'],
-        kpiColumn: 'H',  kpiLabel: 'Cost / qual. show up',  kpiFormat: 'money2' },
+        kpiColumn: 'Z',  kpiLabel: 'Target qual show ups', kpiFormat: 'int' },
       // Renamed from "Close Rate" — it's a count of surgeries booked,
       // not a percentage.
       { label: 'Sales',                   sublabel: 'Booked Surgery (win)',
         stageNames: ['Booked Surgery'],
-        kpiColumn: 'I',  kpiLabel: 'Cost / acquisition',    kpiFormat: 'money2' }
+        kpiColumn: 'AB', kpiLabel: 'Target surgeries',     kpiFormat: 'int' }
     ]
   },
 
@@ -235,18 +244,22 @@ const FUNNELS = [
     title:    'GLP-1 Downsell Funnel',
     subtitle: 'Secondary — auto-routed at form when a lead doesn\'t qualify for surgery',
     steps: [
+      // Same row-3 column map as the primary funnel — see the comment
+      // block above. GLP-1 uses count-type targets: Q (clicks), T (leads),
+      // V (GLP-1 downsells), AA (new GLP-1 sales).
       { label: 'Total Clicks',             sublabel: 'Meta outbound clicks',
         externalMetric: 'clicks',
-        kpiColumn: 'O', kpiLabel: 'Ad Spend',       kpiFormat: 'money' },
+        kpiColumn: 'Q',  kpiLabel: 'Target clicks',          kpiFormat: 'int' },
       { label: 'Landing Page CVR',         sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*',
-        kpiColumn: 'D', kpiLabel: 'Cost / lead',    kpiFormat: 'money2' },
+        kpiColumn: 'T',  kpiLabel: 'Target leads',           kpiFormat: 'int' },
       { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Auto-routed to GLP-1 (cumulative)',
-        stageNames: ['GLP-1 Downsell', 'Won (GLP -1)'] },
+        stageNames: ['GLP-1 Downsell', 'Won (GLP -1)'],
+        kpiColumn: 'V',  kpiLabel: 'Target GLP-1 downsells', kpiFormat: 'int' },
       // Renamed from "Close Rate" for consistency — it's a sales count.
       { label: 'Sales',                    sublabel: 'GLP-1 purchased (win)',
         stageNames: ['Won (GLP -1)'],
-        kpiColumn: 'I', kpiLabel: 'Cost / acquisition', kpiFormat: 'money2' }
+        kpiColumn: 'AA', kpiLabel: 'Target GLP-1 sales',     kpiFormat: 'int' }
     ]
   }
 ];
