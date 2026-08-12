@@ -217,6 +217,12 @@ function loadAllRows() {
     const adThumbnailUrl         = extractThumbUrl(colIdx.adThumbnailUrl);
     const adThumbnailUrlFallback = extractThumbUrl(colIdx.adThumbnailFallback);
 
+    // GLP-1 downsell flag — auto-populated column whose value equals
+    // "GLP-1 Downsell" for leads routed to the GLP-1 track at form
+    // submission. Used by the exclusion-based funnel counts (see
+    // computeFunnels below). Stored as `glpFlag` for compact access.
+    const glpFlag = colIdx.glpDownsellFlag ? str(r[colIdx.glpDownsellFlag - 1]) : '';
+
     if (date) {
       if (!dateMin || date < dateMin) dateMin = date;
       if (!dateMax || date > dateMax) dateMax = date;
@@ -236,6 +242,7 @@ function loadAllRows() {
       adPreviewUrl: adPreviewUrl,
       adThumbnailUrl: adThumbnailUrl,
       adThumbnailUrlFallback: adThumbnailUrlFallback,
+      glpFlag: glpFlag,
       formAnswers: formAnswers
     });
   }
@@ -882,9 +889,33 @@ function computeNoteBreakdowns(rows) {
  * the horizontal-funnel rendering on the Overview tab. Each step gets
  * count + pctOfFirst + pctOfPrev + dropFromPrev.
  *
- * stageNames can be an array of stage names OR one of the shortcuts:
- *   '*ALL*'       — count every row in the filtered set
- *   '*QUALIFIED*' — count every row where isQualified() is true
+ * A step must specify EXACTLY ONE counting mode:
+ *
+ *   externalMetric  'clicks' | 'adSpend' — pulled from the monthly
+ *                   Meta sheets via loadTrafficMetrics.
+ *
+ *   stageNames      Either an array of STAGES names (matched against the
+ *                   classified stage r.stage) OR one of the shortcuts:
+ *                     '*ALL*'       — every row in the filtered set
+ *                     '*QUALIFIED*' — every row where isQualified() is true
+ *
+ *   count           { matchCategories, excludeCategories,
+ *                     matchGlpDownsell, excludeGlpDownsell }
+ *                   Raw-category exclusion / inclusion, mirroring the
+ *                   client's tracker-sheet COUNTIFS formulas:
+ *                     matchCategories    — rawCategory (col E) must equal
+ *                                          one of these (case-insensitive,
+ *                                          trimmed). Include-list.
+ *                     excludeCategories  — rawCategory must NOT equal any
+ *                                          of these. Exclude-list; matches
+ *                                          Sheets' COUNTIFS "<>X" semantics.
+ *                     matchGlpDownsell   — include ONLY if glpFlag equals
+ *                                          "GLP-1 Downsell".
+ *                     excludeGlpDownsell — exclude if glpFlag equals
+ *                                          "GLP-1 Downsell".
+ *                   All fields are optional and AND'd together. Comparisons
+ *                   are lowercased/trimmed so trailing spaces or case
+ *                   differences don't cause silent misses.
  */
 function computeFunnels(rows, traffic, monthlyKpis) {
   const cfg = (typeof FUNNELS === 'undefined') ? [] : FUNNELS;
@@ -895,12 +926,37 @@ function computeFunnels(rows, traffic, monthlyKpis) {
   // Row 3 (target KPIs) of the newest overlapping monthly sheet.
   const kpiRow = (monthlyKpis && monthlyKpis.kpiRow) ? monthlyKpis.kpiRow : {};
 
+  // Case-insensitive, trimmed rawCategory comparator. Google Sheets
+  // COUNTIFS "<>X" is case-insensitive on text and ignores nothing about
+  // whitespace, so we normalise both sides here to match.
+  function normCat(v) { return (v == null ? '' : v.toString()).toLowerCase().trim(); }
+
+  // Count rows using the exclusion-based `count` config. Mirrors the
+  // client's tracker-sheet COUNTIFS formulas exactly.
+  function countByFilter(f) {
+    const matchCats   = (f.matchCategories   || []).map(normCat);
+    const excludeCats = (f.excludeCategories || []).map(normCat);
+    const glpToken    = 'glp-1 downsell';
+    return rows.filter(function (r) {
+      const cat = normCat(r.rawCategory);
+      if (matchCats.length   &&  matchCats.indexOf(cat)   === -1) return false;
+      if (excludeCats.length &&  excludeCats.indexOf(cat) !== -1) return false;
+      const flag = normCat(r.glpFlag);
+      if (f.matchGlpDownsell   && flag !== glpToken) return false;
+      if (f.excludeGlpDownsell && flag === glpToken) return false;
+      return true;
+    }).length;
+  }
+
   return cfg.map(function (funnel) {
     const steps = (funnel.steps || []).map(function (step) {
       let count;
       if (step.externalMetric) {
         // Traffic-sourced step (e.g. 'clicks' from the monthly Meta tabs).
         count = Number(traffic[step.externalMetric]) || 0;
+      } else if (step.count) {
+        // Raw-category exclusion/inclusion — matches the tracker sheet.
+        count = countByFilter(step.count);
       } else if (step.stageNames === '*ALL*') {
         count = total;
       } else if (step.stageNames === '*QUALIFIED*') {

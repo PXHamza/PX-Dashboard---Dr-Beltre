@@ -198,39 +198,44 @@ const FUNNELS = [
       // (raw count) and the AD-AK rate columns for the rest so each step
       // shows the % that corresponds to its transition. If a row-3 cell
       // is blank the card shows "-" (never fabricated).
+      // Counts below mirror the tracker-sheet COUNTIFS formulas 1:1
+      // (exclusion-based on the raw Lead Category text in col E, plus
+      // the GLP-1 Downsell flag column). Numbers match the sheet exactly.
       { label: 'Total Clicks',            sublabel: 'Meta outbound clicks',
         externalMetric: 'clicks',
         kpiColumn: 'Q',  kpiLabel: 'Clicks',                       kpiFormat: 'int' },
       { label: 'Landing Page CVR',        sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*',
         kpiColumn: 'AD', kpiLabel: '% Landing Page Conversion',    kpiFormat: 'pct' },
-      // Good Fit for SURGERY. Explicit include-list — safer than
-      // *QUALIFIED* which would leave GLP-1 leads in (they're not
-      // "unqualified", they're just on a different track).
-      { label: 'Good Fit Lead in Funnel', sublabel: 'Surgery-eligible (excl. Unqualified & GLP-1)',
-        stageNames: ['New Lead', 'Tried Contacting', 'Booked Consult',
-                     'Booked Surgery', 'Qualified (Moving Forward)',
-                     'Lost', 'Waiting for Finance', 'No Show'],
+      // # of Qualified Leads: E<>Unqualified Auto, E<>DND Enabled,
+      //                      X<>GLP-1 Downsell.
+      { label: 'Good Fit Lead in Funnel', sublabel: 'Surgery-eligible (excl. Unqualified Auto, DND, GLP-1)',
+        count: { excludeCategories: ['Unqualified Auto', 'DND Enabled'],
+                 excludeGlpDownsell: true },
         kpiColumn: 'AE', kpiLabel: '% Qualified lead rate',        kpiFormat: 'pct' },
-      { label: 'Calendar Bookings',       sublabel: 'Booked a consult (cumulative)',
-        stageNames: ['Booked Consult', 'Booked Surgery',
-                     'Qualified (Moving Forward)', 'Lost',
-                     'Waiting for Finance', 'No Show'],
+      // # Booked Consults: also excludes New Lead / Tried Contacting.
+      { label: 'Calendar Bookings',       sublabel: 'Past the "still-contacting" phase',
+        count: { excludeCategories: ['New Lead', 'Tried Contacting',
+                                     'Unqualified Auto', 'DND Enabled'],
+                 excludeGlpDownsell: true },
         kpiColumn: 'AG', kpiLabel: '% good fit → book consult',    kpiFormat: 'pct' },
-      { label: 'Show Up Rate',            sublabel: 'Attended initial consult',
-        stageNames: ['Booked Surgery', 'Qualified (Moving Forward)',
-                     'Lost', 'Waiting for Finance'],
+      // # of Show ups: also excludes Booked Consult and No Show.
+      { label: 'Show Up Rate',            sublabel: 'Progressed past the initial consult',
+        count: { excludeCategories: ['New Lead', 'Tried Contacting',
+                                     'Unqualified Auto', 'Booked Consult',
+                                     'No Show', 'DND Enabled'],
+                 excludeGlpDownsell: true },
         kpiColumn: 'AH', kpiLabel: '% show up rate',               kpiFormat: 'pct' },
-      { label: 'Good Fit Post Consult',   sublabel: 'Booked to meet Beltre',
-        stageNames: ['Booked Surgery', 'Qualified (Moving Forward)',
-                     'Lost', 'Waiting for Finance'],
+      // # of qualified show ups: also excludes the manual Unqualified stage.
+      { label: 'Good Fit Post Consult',   sublabel: 'Qualified after the consult',
+        count: { excludeCategories: ['New Lead', 'Tried Contacting',
+                                     'Unqualified Auto', 'Booked Consult',
+                                     'No Show', 'Unqualified', 'DND Enabled'],
+                 excludeGlpDownsell: true },
         kpiColumn: 'AI', kpiLabel: '% Qualified Leads from show ups', kpiFormat: 'pct' },
-      // "Show Up To Beltre" removed — not reliably calculable from the
-      // current CRM stages. Order: Good Fit Post Consult → Sales.
-      // Renamed from "Close Rate" — the big number is a count of surgeries
-      // booked; the KPI line shows the surgery close rate.
+      // # of new Surgeries: exact match on "Booked Surgery".
       { label: 'Sales',                   sublabel: 'Booked Surgery (win)',
-        stageNames: ['Booked Surgery'],
+        count: { matchCategories: ['Booked Surgery'] },
         kpiColumn: 'AK', kpiLabel: '% Close Rate (Surgery)',       kpiFormat: 'pct' }
     ]
   },
@@ -251,13 +256,13 @@ const FUNNELS = [
       { label: 'Total Clicks',             sublabel: 'Meta outbound clicks',
         externalMetric: 'clicks',
         kpiColumn: 'Q',  kpiLabel: 'Clicks',                 kpiFormat: 'int' },
-      { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Auto-routed to GLP-1 (cumulative)',
-        stageNames: ['GLP-1 Downsell', 'Won (GLP -1)'],
+      // # of GLP-1 Downsell: X = "GLP-1 Downsell".
+      { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Auto-routed to GLP-1 (flag column X)',
+        count: { matchGlpDownsell: true },
         kpiColumn: 'AF', kpiLabel: '% GLP-1 Downsell rate',  kpiFormat: 'pct' },
-      // Renamed from "Close Rate" for consistency — the big number is a
-      // sales count; the KPI line shows the GLP-1 close rate.
+      // # of new GLP-1: E = "Won (GLP -1)".
       { label: 'Sales',                    sublabel: 'GLP-1 purchased (win)',
-        stageNames: ['Won (GLP -1)'],
+        count: { matchCategories: ['Won (GLP -1)'] },
         kpiColumn: 'AJ', kpiLabel: '% Close Rate (GLP-1)',   kpiFormat: 'pct' }
     ]
   }
