@@ -1208,12 +1208,12 @@ function paintFunnels(funnels) {
         ? '100.0%'
         : (s.pctOfPrev == null ? '—' : fmt.pct(s.pctOfPrev));
       // Optional monthly-sheet KPI shown under the sublabel. Rendered as
-      //   KPI: <label> <value>
-      // (per client request — no colon between label and value). Missing
-      // values render as "-" — never fabricated.
+      //   KPI: <value>
+      // The label lives in the sublabel already — repeating it here just
+      // wraps and gets clipped. Missing values render as "-" (never
+      // fabricated).
       const kpiLine = s.kpi
         ? '<div class="kpi-line">KPI: ' +
-          escapeHtml(s.kpi.label) + ' ' +
           '<span class="kpi-val">' + fmtKpi(s.kpi.value, s.kpi.format) + '</span>' +
         '</div>'
         : '';
