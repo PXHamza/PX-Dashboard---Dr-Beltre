@@ -94,6 +94,14 @@ const NOTE_BREAKDOWN_STAGES = [];
  *                'clicks'  — unique outbound clicks from Meta monthly
  *                            tabs (see loadTrafficMetrics in Code.gs).
  *                'adSpend' — total ad spend from Meta monthly tabs.
+ *   kpiColumn  (string, optional) Column letter (e.g. 'F', 'H') whose
+ *              row-4 value on the latest overlapping monthly sheet is
+ *              displayed as an extra KPI line under the sublabel. If
+ *              the cell is empty the card shows "-" — no fabrication.
+ *   kpiLabel   (string, optional) Prefix for the KPI line, e.g.
+ *              "Cost / booked call". Defaults to "KPI".
+ *   kpiFormat  (string, optional) 'money' | 'money2' | 'pct' | 'int' |
+ *              'ratio' | 'raw'. Defaults to 'raw' — value shown as-is.
  *
  * The dashboard computes count + % of first step + % of prior step +
  * absolute drop for each step, no extra config required. Leave empty
