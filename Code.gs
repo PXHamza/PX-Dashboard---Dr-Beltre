@@ -892,7 +892,8 @@ function computeFunnels(rows, traffic, monthlyKpis) {
   const total = rows.length;
   const qualifiedCount = rows.filter(function (r) { return r.qualified; }).length;
   traffic = traffic || {};
-  const row4 = (monthlyKpis && monthlyKpis.row4) ? monthlyKpis.row4 : {};
+  // Row 3 (target KPIs) of the newest overlapping monthly sheet.
+  const kpiRow = (monthlyKpis && monthlyKpis.kpiRow) ? monthlyKpis.kpiRow : {};
 
   return cfg.map(function (funnel) {
     const steps = (funnel.steps || []).map(function (step) {
@@ -917,7 +918,7 @@ function computeFunnels(rows, traffic, monthlyKpis) {
       // monthly sheet. If the cell is blank the client renders "-" and
       // never fabricates a value.
       if (step.kpiColumn) {
-        const raw = row4[String(step.kpiColumn).toUpperCase()];
+        const raw = kpiRow[String(step.kpiColumn).toUpperCase()];
         const isBlank = (raw == null || raw === '');
         out.kpi = {
           label:  step.kpiLabel  || 'KPI',
@@ -1049,16 +1050,17 @@ function loadTrafficMetrics(fromDate, toDate) {
 
 /**
  * Find the NEWEST monthly "MMM - YYYY" sheet whose calendar month overlaps
- * the requested date range, then return its row-4 values keyed by column
- * letter (A, B, ..., Z, AA, ...). Row 4 in these sheets holds the total
- * KPIs (Cost Per Lead, Cost per booked call, ROI, etc.) — the funnel
- * steps display these under each card via kpiColumn in FUNNELS config.
+ * the requested date range, then return its ROW 3 values keyed by column
+ * letter (A, B, ..., Z, AA, ...). Row 3 in these sheets holds the
+ * "Target KPIs" row (Cost Per Lead, Cost per booked call, ROI, target
+ * click counts, etc.) — the funnel steps display these under each card
+ * via kpiColumn in FUNNELS config.
  *
  * "Overlaps" = the month contains at least one day in [fromDate..toDate].
  * When a range spans two months (e.g. 20-Jul → 10-Aug) the LATEST month
  * wins (Aug), per the client's spec.
  *
- * Returns { sheetName, row4: { A: ..., B: ..., ... } } or {} if none.
+ * Returns { sheetName, kpiRow: { A: ..., B: ..., ... } } or {} if none.
  */
 function loadLatestMonthKpis(fromDate, toDate) {
   const ss = SpreadsheetApp.getActive();
@@ -1097,13 +1099,14 @@ function loadLatestMonthKpis(fromDate, toDate) {
   if (!bestSheet) return {};
 
   const lastCol = bestSheet.getLastColumn();
-  if (lastCol < 1) return { sheetName: bestName, row4: {} };
-  const values = bestSheet.getRange(4, 1, 1, lastCol).getValues()[0];
-  const row4 = {};
+  if (lastCol < 1) return { sheetName: bestName, kpiRow: {} };
+  // Row 3 = Target KPIs. (Row 4 is "Total" actuals; not what we want here.)
+  const values = bestSheet.getRange(3, 1, 1, lastCol).getValues()[0];
+  const kpiRow = {};
   for (let i = 0; i < values.length; i++) {
-    row4[colLetter(i + 1)] = values[i];
+    kpiRow[colLetter(i + 1)] = values[i];
   }
-  return { sheetName: bestName, row4: row4 };
+  return { sheetName: bestName, kpiRow: kpiRow };
 }
 
 // =============================================================================
