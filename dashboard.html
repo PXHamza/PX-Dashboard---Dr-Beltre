@@ -162,11 +162,14 @@
       font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
       color: var(--text);
     }
-    /* % of first, directly below the big number. First step is 100%. */
+    /* Step-to-step % under the big number. Green by default; the
+       .pct-bad modifier flips it red when the value is below the KPI
+       target for that step (see paintFunnels for the comparison). */
     .funnel-step .pct {
       font-size: 12.5px; font-weight: 700; color: var(--green);
       margin-top: 2px;
     }
+    .funnel-step .pct.pct-bad { color: var(--red); }
     .funnel-step .label {
       font-size: 12px; font-weight: 700; color: var(--text);
       margin-top: 8px;
@@ -1201,12 +1204,33 @@ function paintFunnels(funnels) {
     const steps = f.steps.map((s, i) => {
       // Bar height still tapers relative to the first step.
       const heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
-      // Percentage below the number = step-to-step conversion
-      // (this / prior). First step is baseline 100%. If the prior step
-      // was zero, pctOfPrev is null → render "—" (never "0.0%").
-      const pctText = (i === 0)
-        ? '100.0%'
-        : (s.pctOfPrev == null ? '—' : fmt.pct(s.pctOfPrev));
+
+      // Percentage below the number. Two modes:
+      //   Step 0 (Total Clicks): if a KPI target (int) is present, we
+      //     replace the flat "100.0%" with the delta vs target so the
+      //     card immediately reads how close/far actual traffic is.
+      //     Signed % (+ / -), red when below target.
+      //   Steps 1+ : step-to-step conversion (pctOfPrev). If the step
+      //     carries a percentage KPI target we colour it red when the
+      //     actual conversion is below the target, green otherwise.
+      //     Prior step of zero → pctOfPrev is null → render "—".
+      let pctText, pctClass = '';
+      const kpiNum = (s.kpi && s.kpi.value != null && !isNaN(Number(s.kpi.value)))
+        ? Number(s.kpi.value) : null;
+      if (i === 0) {
+        if (kpiNum != null && kpiNum > 0 && s.kpi.format === 'int') {
+          const delta = (s.count - kpiNum) / kpiNum;
+          pctText = (delta >= 0 ? '+' : '') + (delta * 100).toFixed(1) + '%';
+          pctClass = delta >= 0 ? '' : 'pct-bad';
+        } else {
+          pctText = '100.0%';
+        }
+      } else {
+        pctText = (s.pctOfPrev == null ? '—' : fmt.pct(s.pctOfPrev));
+        if (kpiNum != null && s.kpi.format === 'pct' && s.pctOfPrev != null) {
+          pctClass = (s.pctOfPrev >= kpiNum) ? '' : 'pct-bad';
+        }
+      }
       // Optional monthly-sheet KPI shown under the sublabel. Rendered as
       //   KPI: <value>
       // The label lives in the sublabel already — repeating it here just
@@ -1220,7 +1244,7 @@ function paintFunnels(funnels) {
       return `
         <div class="funnel-step">
           <div class="value">${fmt.int(s.count)}</div>
-          <div class="pct">${pctText}</div>
+          <div class="pct ${pctClass}">${pctText}</div>
           <div class="label">${escapeHtml(s.label)}</div>
           ${s.sublabel ? '<div class="sublabel">' + escapeHtml(s.sublabel) + '</div>' : ''}
           ${kpiLine}
@@ -1264,16 +1288,37 @@ function fmtKpi(value, format) {
 function paintStages(s) {
   if (!s) return;
 
-  // 1) Summary cards.
+  // 1) Summary cards. Four top-line metrics tying traffic → leads → sales:
+  //      Total Leads       — form submissions in the range.
+  //      Click to Lead %   — leads / Meta outbound clicks.
+  //      Click to Sale %   — sales (last step of the primary funnel) / clicks.
+  //      Lead to Sale %    — sales / leads.
+  //
+  //    "Sales" is the count from the primary funnel's Sales step (e.g. Dr
+  //    Beltre = Booked Surgery). Falls back to the won-flagged total from
+  //    stages if the funnel doesn't expose a Sales step.
+  const clicks = (PAYLOAD.traffic && Number(PAYLOAD.traffic.clicks)) || 0;
+  let salesCount = 0;
+  if (PAYLOAD.funnels && PAYLOAD.funnels.length) {
+    const salesStep = PAYLOAD.funnels[0].steps.find(x => x.label === 'Sales');
+    if (salesStep) salesCount = salesStep.count;
+  }
+  if (!salesCount) salesCount = (s.summary && s.summary.won) || 0;
+
+  const pctOrDash = v => v == null ? '—' : fmt.pct(v);
+  const clickToLead = clicks > 0 ? s.total / clicks     : null;
+  const clickToSale = clicks > 0 ? salesCount / clicks  : null;
+  const leadToSale  = s.total > 0 ? salesCount / s.total : null;
+
   document.getElementById('stagesSummary').innerHTML = [
-    { color: 'blue',  label: 'Total Leads',        value: fmt.int(s.total),
+    { color: 'blue',  label: 'Total Leads',      value: fmt.int(s.total),
       meta: s.unmatched ? fmt.int(s.unmatched) + ' unmatched (check stage labels)' : 'All categorised' },
-    { color: 'green', label: 'Active in Pipeline', value: fmt.int(s.summary.active),
-      meta: 'Not in a terminal stage' },
-    { color: 'amber', label: 'Wins',               value: fmt.int(s.summary.won),
-      meta: 'Stages flagged won' },
-    { color: 'pink',  label: 'Win Rate',           value: fmt.pct(s.summary.winRate),
-      meta: fmt.int(s.summary.won) + ' of ' + fmt.int(s.total) }
+    { color: 'green', label: 'Click to Lead %',  value: pctOrDash(clickToLead),
+      meta: fmt.int(s.total) + ' leads / ' + fmt.int(clicks) + ' clicks' },
+    { color: 'amber', label: 'Click to Sale %',  value: pctOrDash(clickToSale),
+      meta: fmt.int(salesCount) + ' sales / ' + fmt.int(clicks) + ' clicks' },
+    { color: 'pink',  label: 'Lead to Sale %',   value: pctOrDash(leadToSale),
+      meta: fmt.int(salesCount) + ' sales / ' + fmt.int(s.total) + ' leads' }
   ].map(c => `<div class="kpi k-${c.color}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="meta">${c.meta}</div></div>`).join('');
 
   // 2) Horizontal bar chart, stages in CRM order. Resize the canvas
