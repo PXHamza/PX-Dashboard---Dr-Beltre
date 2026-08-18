@@ -348,38 +348,23 @@
 <div class="content">
 
   <!-- ============================================================ Overview -->
-  <!-- Overview = client sales funnels (from FUNNELS in Stages.gs) plus
-       the funnel-stage summary that used to live on its own tab. The
-       traditional KPI + charts view moved to the "Metrics" tab below. -->
+  <!-- Dr Beltre Overview is intentionally minimal: the two sales funnels
+       and the four traffic → sales summary cards. Everything else that
+       used to sit here (Stage Distribution, Pipeline Status, Stage
+       Breakdown) moved to the Metrics tab below so this pane stays
+       focused on the top-line funnel view. -->
   <div class="pane active" id="pane-overview">
     <!-- Per-client sales funnels. Hidden entirely when FUNNELS is empty. -->
     <div id="overviewFunnels"></div>
 
-    <!-- Funnel-stage summary (formerly its own tab). -->
+    <!-- Traffic → sales summary cards. -->
     <div class="grid grid-4" id="stagesSummary" style="margin-top:16px; margin-bottom:16px;"></div>
-    <div class="grid grid-2-1" style="margin-bottom:16px;">
-      <div class="panel">
-        <h3>Stage Distribution</h3>
-        <div class="sub">Leads at each stage, in CRM order. Bar length is count; hover for % of total.</div>
-        <div class="chart-wrap" id="stagesChartWrap"><canvas id="chartStages"></canvas></div>
-      </div>
-      <div class="panel">
-        <h3>Pipeline Status</h3>
-        <div class="sub">Active vs Won vs Lost.</div>
-        <div class="chart-wrap donut"><canvas id="chartStagesPie"></canvas></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h3>Stage Breakdown</h3>
-      <div class="sub">Counts, % of total, and stage-to-stage change. Note: terminal/branch stages (Cancelled, No-show, etc.) inflate adjacent retention numbers — interpret as directional, not exact.</div>
-      <div id="stagesTable"></div>
-    </div>
   </div>
 
   <!-- ============================================================ Metrics -->
-  <!-- Everything the old Overview tab used to show — KPI cards with
-       deltas, quality donut, daily volume, campaign-quality stack,
-       and any per-client featured metrics / note breakdowns. -->
+  <!-- Metrics tab: the original KPI + charts view, plus the stage
+       distribution / pipeline / breakdown panels that were moved out
+       of Overview for Dr Beltre so the top-level view stays lean. -->
   <div class="pane" id="pane-metrics">
     <div class="grid grid-5" id="kpiStrip"></div>
     <div id="featuredMetrics" style="margin-top: 12px;"></div>
@@ -405,6 +390,26 @@
       <div class="chart-wrap"><canvas id="chartByCampaign"></canvas></div>
     </div>
     <div id="noteBreakdowns" style="margin-top: 16px;"></div>
+
+    <!-- Stage Distribution / Pipeline Status / Stage Breakdown —
+         relocated here from the Overview tab. -->
+    <div class="grid grid-2-1" style="margin-top:16px; margin-bottom:16px;">
+      <div class="panel">
+        <h3>Stage Distribution</h3>
+        <div class="sub">Leads at each stage, in CRM order. Bar length is count; hover for % of total.</div>
+        <div class="chart-wrap" id="stagesChartWrap"><canvas id="chartStages"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Pipeline Status</h3>
+        <div class="sub">Active vs Won vs Lost.</div>
+        <div class="chart-wrap donut"><canvas id="chartStagesPie"></canvas></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Stage Breakdown</h3>
+      <div class="sub">Counts, % of total, and stage-to-stage change. Note: terminal/branch stages (Cancelled, No-show, etc.) inflate adjacent retention numbers — interpret as directional, not exact.</div>
+      <div id="stagesTable"></div>
+    </div>
   </div>
 
   <!-- ============================================================ Campaigns -->
@@ -673,15 +678,17 @@ function renderTab(name) {
   const p = PAYLOAD;
   switch (name) {
     case 'overview':
-      // Overview now = per-client sales funnels + funnel-stage summary.
+      // Overview = per-client sales funnels + traffic-to-sales KPI strip.
       paintFunnels(p.funnels);
-      paintStages(p.stages);
+      paintStagesSummary(p.stages);
       break;
     case 'metrics':
-      // What the old Overview showed.
+      // What the old Overview showed, PLUS the stage distribution /
+      // pipeline / breakdown panels that were moved here from Overview.
       drawDailyChart(p.daily);
       drawDonut(p.qualityBreakdown);
       drawByCampaign(p.qualityByCampaign);
+      paintStagesDetails(p.stages);
       break;
     case 'variants':
       drawVariantBar(p.pageVariantTable);
@@ -1279,24 +1286,22 @@ function fmtKpi(value, format) {
 }
 
 // ----- Funnel Stages -------------------------------------------------------
-// Renders three things for the "Funnel Stages" tab:
-//   1) Summary KPI strip (Total, Active, Won, Win Rate)
-//   2) Horizontal bar chart in CRM order — the funnel shape emerges
-//      naturally as bars shrink down the pipeline
-//   3) Pipeline-status donut (Active / Won / Lost)
-//   4) Breakdown table with counts, %, and stage-to-stage change
-function paintStages(s) {
+// Split into two paint functions so the Overview tab can render the
+// summary strip immediately while the heavier chart / pie / table
+// wait until the Metrics tab is first activated (Chart.js can't size
+// a canvas inside a display:none pane, so lazy activation is required).
+//
+//   paintStagesSummary(s)  — the four traffic → sales KPI cards
+//                            (Total Leads, Click to Lead %, Click to
+//                             Sale %, Lead to Sale %) shown on Overview.
+//   paintStagesDetails(s)  — Stage Distribution bar chart, Pipeline
+//                            Status donut, and Stage Breakdown table
+//                            shown on Metrics.
+function paintStagesSummary(s) {
   if (!s) return;
-
-  // 1) Summary cards. Four top-line metrics tying traffic → leads → sales:
-  //      Total Leads       — form submissions in the range.
-  //      Click to Lead %   — leads / Meta outbound clicks.
-  //      Click to Sale %   — sales (last step of the primary funnel) / clicks.
-  //      Lead to Sale %    — sales / leads.
-  //
-  //    "Sales" is the count from the primary funnel's Sales step (e.g. Dr
-  //    Beltre = Booked Surgery). Falls back to the won-flagged total from
-  //    stages if the funnel doesn't expose a Sales step.
+  // "Sales" is the count from the primary funnel's Sales step (e.g. Dr
+  // Beltre = Booked Surgery). Falls back to the won-flagged total from
+  // stages if the funnel doesn't expose a Sales step.
   const clicks = (PAYLOAD.traffic && Number(PAYLOAD.traffic.clicks)) || 0;
   let salesCount = 0;
   if (PAYLOAD.funnels && PAYLOAD.funnels.length) {
@@ -1320,6 +1325,10 @@ function paintStages(s) {
     { color: 'pink',  label: 'Lead to Sale %',   value: pctOrDash(leadToSale),
       meta: fmt.int(salesCount) + ' sales / ' + fmt.int(s.total) + ' leads' }
   ].map(c => `<div class="kpi k-${c.color}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="meta">${c.meta}</div></div>`).join('');
+}
+
+function paintStagesDetails(s) {
+  if (!s) return;
 
   // 2) Horizontal bar chart, stages in CRM order. Resize the canvas
   //    container based on stage count so very long pipelines (Builderwell
