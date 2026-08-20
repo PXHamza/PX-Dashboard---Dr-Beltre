@@ -219,8 +219,19 @@ const FUNNELS = [
                                      'Unqualified Auto', 'DND Enabled'],
                  excludeGlpDownsell: true },
         kpiColumn: 'AG', kpiLabel: '% good fit → book consult',    kpiFormat: 'pct' },
-      // # of Show ups: also excludes Booked Consult and No Show.
-      { label: 'Show Up Rate',            sublabel: 'Progressed past the initial consult',
+      // # of Consults Done (# of Consults Due formula, col X): all
+      // leads past the "still-scheduled" phase — Booked Consult also
+      // excluded. Inserting this step ensures Show Up Rate's step-to-
+      // step % renders as (# of Show ups) / (# of Consults Done),
+      // matching the client's tracker-sheet Show Up % formula (Y / X).
+      { label: 'Consults Done',           sublabel: 'Past the "still-scheduled" phase',
+        count: { excludeCategories: ['New Lead', 'Tried Contacting',
+                                     'Unqualified Auto', 'Booked Consult',
+                                     'DND Enabled'],
+                 excludeGlpDownsell: true } },
+      // # of Show ups: also excludes No Show. Denominator for the
+      // step-to-step % is Consults Done above, giving Y / X.
+      { label: 'Show Up Rate',            sublabel: 'Attended the consult',
         count: { excludeCategories: ['New Lead', 'Tried Contacting',
                                      'Unqualified Auto', 'Booked Consult',
                                      'No Show', 'DND Enabled'],
