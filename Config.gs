@@ -28,19 +28,42 @@ const CONFIG = {
   //    Set a value to '' to disable that field entirely.
   // ---------------------------------------------------------------------------
   COLUMNS: {
-    date:         'A',                 // A — when the lead came in
-    name:         'B',                 // B
-    email:        'C',                 // C
-    phone:        'D',                 // D — Phone Number
-    leadCategory: 'E',                 // E — Lead Category
-    salesNotes:   'G',                 // G — Sales team notes
-    saleRevenue:  'I',                 // I — Sale Revenue
-    source:       'J',                 // J — Source
-    campaign:     'K',                 // K — Campaign ID
-    adSet:        'L',                 // L — Ad Set ID
-    ad:           'M',                 // M — Ad ID
-    pageVariant:  'Q',                 // Q — Page Variant
-    fbclid:       'R',                 // R — Fbclid
+    // Full DTO Lead Data column map (from client spec):
+    //   A Date            H Lead Value         O Creative Preview Link
+    //   B Name            I Sale Revenue       P Ad Thumbnail
+    //   C Email           J Source             Q Page Variant
+    //   D Phone Number    K Campaign ID        R Fbclid
+    //   E Lead Category   L Ad set ID          S Funnel Type
+    //   F Booked Call     M Ad ID              T-AD Form questions
+    //     Time            N Preview Link
+    //   G Sales team notes
+    //
+    // Every column below is documented even when it's not consumed by
+    // the shared dashboard yet — that way when a new tab or metric is
+    // added later, the mapping is already in place.
+    date:            'A',              // A — when the lead came in
+    name:            'B',              // B
+    email:           'C',              // C
+    phone:           'D',              // D — Phone Number
+    leadCategory:    'E',              // E — Lead Category
+    bookedCallTime:  'F',              // F — Booked Call Time
+                                        //     (present on the sheet; not yet
+                                        //      surfaced in the shared dashboard)
+    salesNotes:      'G',              // G — Sales team notes
+    leadValue:       'H',              // H — Lead Value (estimated pipeline $)
+                                        //     (present on the sheet; not yet
+                                        //      surfaced in the shared dashboard —
+                                        //      dashboard uses Sale Revenue below)
+    saleRevenue:     'I',              // I — Sale Revenue (closed $)
+    source:          'J',              // J — Source
+    campaign:        'K',              // K — Campaign ID
+    adSet:           'L',              // L — Ad set ID
+    ad:              'M',              // M — Ad ID
+    funnelType:      'S',              // S — Funnel Type
+                                        //     (present on the sheet; not yet
+                                        //      surfaced in the shared dashboard)
+    pageVariant:     'Q',              // Q — Page Variant
+    fbclid:          'R',              // R — Fbclid
 
     // ---- Creative-preview columns (Top Creatives tab) -----------------
     // N — Preview Link (clickable ad preview URL)

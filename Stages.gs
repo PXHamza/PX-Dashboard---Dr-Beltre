@@ -21,7 +21,7 @@ const STAGES = [
     match: ['meeting booked'] },
   { name: 'No RSVP - Cancelled',
     match: ['no rsvp'],                                               terminal: true },
-  { name: 'Qualified | Not Ready (Longer-Term Nurture)',
+  { name: 'Qualified | Not Ready (Longer-Term Nuture)',
     match: ['not ready', 'longer-term nurture', 'longer-term nuture',
             'longer term nurture', 'longer term nuture'] },
   { name: 'No show',
@@ -53,13 +53,13 @@ const FEATURED_METRICS = [
   // Meetings booked = anyone who booked, whether or not the call has
   // happened yet. Includes every downstream post-booking stage.
   { label: 'Meeting Booked %', stageNames: ['Meeting Booked', 'No RSVP - Cancelled',
-                                             'Qualified | Not Ready (Longer-Term Nurture)',
+                                             'Qualified | Not Ready (Longer-Term Nuture)',
                                              'No show', 'Unqualified | After The Call',
                                              'Call #2', 'Contract Sent',
                                              'Paid', 'Lost'],           color: 'blue'   },
   // Post-call qualified path (had the call and stayed in play).
   { label: 'Qualified Post Call %',
-                                 stageNames: ['Qualified | Not Ready (Longer-Term Nurture)',
+                                 stageNames: ['Qualified | Not Ready (Longer-Term Nuture)',
                                              'Call #2', 'Contract Sent',
                                              'Paid', 'Lost'],           color: 'green'  },
   // Contract stage — an offer is on the table.
