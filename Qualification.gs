@@ -1,35 +1,36 @@
 /**
- * Qualification.gs — Dr Beltre lead-qualification rule.
+ * Qualification.gs — PX Medical DTO lead-qualification rule.
  *
- * A lead is considered UNQUALIFIED only when its Lead Category is
- * "Unqualified". Every other stage — including New Lead, Tried Contacting,
- * Booked Consult, Booked Surgery, Qualified (Moving Forward), Won, Lost,
- * Waiting for Finance, and GLP-1 Downsell — counts as QUALIFIED.
+ * A lead is UNQUALIFIED when its Lead Category is:
+ *   - Unqualified | After The Call
+ *   - Not A Fit | Application Cancelled
+ *   - Cold Lead List
+ *
+ * A lead is JUNK when its Lead Category contains:
+ *   - Fake Lead
+ *
+ * Everything else counts as QUALIFIED — including active states
+ * (New Lead / Meeting Booked / Call #2 / Contract Sent / Paid /
+ * Qualified | Not Ready) and terminal ones that didn't disqualify
+ * the lead (No RSVP - Cancelled, No show, Lost).
  */
 
 const QUALIFICATION = {
-  /**
-   * Lead Category contains ANY of these (case-insensitive, substring) → NOT qualified.
-   * Anything else → qualified.
-   */
   DISQUALIFYING_KEYWORDS: [
-    'unqualified'
+    'unqualified',            // "Unqualified | After The Call"
+    'not a fit',              // "Not A Fit | Application Cancelled"
+    'application cancel',     // (matches "Application Cancelled" / "Canceled")
+    'cold lead',              // "Cold Lead List"
+    'cold list'
   ],
-
-  /**
-   * Outright junk / spam categories. Tracked separately from "Unqualified"
-   * so we can show three buckets on the donut: Qualified / Unqualified / Junk.
-   */
   JUNK_KEYWORDS: [
-    'junk',
-    'spam',
     'fake'
   ]
 };
 
 /**
  * Returns true iff the raw category indicates a qualified lead.
- * Empty / blank category counts as NOT qualified (we can't assume anything).
+ * Empty / blank category counts as NOT qualified.
  */
 function isQualified(rawCategory) {
   const s = (rawCategory == null ? '' : rawCategory.toString()).toLowerCase().trim();
