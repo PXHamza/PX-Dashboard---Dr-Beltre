@@ -150,7 +150,8 @@ const FUNNELS = [
                                      'No RSVP - Cancelled',
                                      'Not A Fit | Application Cancelled',
                                      'Fake Lead',
-                                     'Cold Lead List'] } },
+                                     'Cold Lead List'] },
+        kpiColumn: 'W',  kpiLabel: 'Target consults due',            kpiFormat: 'int' },
       // # of Show ups: also excludes No show. Includes Unqualified |
       // After The Call — the person showed up before being disqualified.
       { label: 'Show Up Rate',            sublabel: 'Attended the consult',
