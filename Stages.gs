@@ -125,58 +125,54 @@ const FUNNELS = [
       { label: 'Landing Page CVR',        sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*',
         kpiColumn: 'AB', kpiLabel: '% Landing Page Conversion',       kpiFormat: 'pct' },
-      // # of Qualified Leads: exclude the four disqualifying / junk buckets.
-      { label: 'Qualified Leads',         sublabel: 'Excl. Unqualified, Not A Fit, Cold Lead, Fake',
-        count: { excludeCategories: ['Unqualified | After The Call',
-                                     'Not A Fit | Application Cancelled',
-                                     'Cold Lead List',
+      // # of Qualified Leads: excludes ONLY Not A Fit and Fake Lead.
+      // (Unqualified | After The Call and Cold Lead List still count
+      //  as qualified per the tracker-sheet formula.)
+      { label: 'Qualified Leads',         sublabel: 'Excl. Not A Fit and Fake Lead',
+        count: { excludeCategories: ['Not A Fit | Application Cancelled',
                                      'Fake Lead'] },
         kpiColumn: 'AC', kpiLabel: '% Qualified lead rate',           kpiFormat: 'pct' },
-      // # Booked Consults: also excludes New Lead (Not Booked) — no
-      // consult has been scheduled yet for those leads.
+      // # Booked Consults: also excludes New Lead (Not Booked) and
+      // Cold Lead List (no consult ever booked for either).
       { label: 'Booked Consults',         sublabel: 'A meeting was scheduled',
         count: { excludeCategories: ['New Lead (Not Booked)',
-                                     'Unqualified | After The Call',
                                      'Not A Fit | Application Cancelled',
-                                     'Cold Lead List',
-                                     'Fake Lead'] },
+                                     'Fake Lead',
+                                     'Cold Lead List'] },
         kpiColumn: 'AD', kpiLabel: '% good fit → book consult',       kpiFormat: 'pct' },
       // # of Consults Due: also excludes Meeting Booked (still-scheduled)
-      // and No RSVP - Cancelled (cancelled before it happened). Denominator
-      // for Show Up Rate below — matches the tracker Show Up % formula.
+      // and No RSVP - Cancelled (cancelled before it happened).
+      // Denominator for Show Up Rate below — matches the tracker Show
+      // Up % formula (Y / X).
       { label: 'Consults Done',           sublabel: 'Past the "still-scheduled" phase',
         count: { excludeCategories: ['New Lead (Not Booked)',
                                      'Meeting Booked',
                                      'No RSVP - Cancelled',
-                                     'Unqualified | After The Call',
                                      'Not A Fit | Application Cancelled',
-                                     'Cold Lead List',
-                                     'Fake Lead'] } },
-      // # of Show ups: also excludes No show.
+                                     'Fake Lead',
+                                     'Cold Lead List'] } },
+      // # of Show ups: also excludes No show. Includes Unqualified |
+      // After The Call — the person showed up before being disqualified.
       { label: 'Show Up Rate',            sublabel: 'Attended the consult',
         count: { excludeCategories: ['New Lead (Not Booked)',
                                      'Meeting Booked',
                                      'No RSVP - Cancelled',
                                      'No show',
-                                     'Unqualified | After The Call',
                                      'Not A Fit | Application Cancelled',
-                                     'Cold Lead List',
-                                     'Fake Lead'] },
+                                     'Fake Lead',
+                                     'Cold Lead List'] },
         kpiColumn: 'AE', kpiLabel: '% show up rate',                  kpiFormat: 'pct' },
-      // # of qualified show ups: matches # of Show ups here because
-      // Unqualified | After The Call is already excluded upstream (DTO
-      // doesn't have a separate "auto-unqualified at form" state). Kept
-      // as its own card so the % Qualified-Leads-from-show-ups KPI has
-      // a home — will read 100.0% until a new bad-fit stage is added.
-      { label: 'Qualified Show Ups',      sublabel: 'Attended and stayed qualified',
+      // # of qualified show ups: also excludes Unqualified | After The
+      // Call — attended AND stayed qualified post-call.
+      { label: 'Qualified Show Ups',      sublabel: 'Attended and stayed qualified post-call',
         count: { excludeCategories: ['New Lead (Not Booked)',
                                      'Meeting Booked',
                                      'No RSVP - Cancelled',
                                      'No show',
                                      'Unqualified | After The Call',
                                      'Not A Fit | Application Cancelled',
-                                     'Cold Lead List',
-                                     'Fake Lead'] },
+                                     'Fake Lead',
+                                     'Cold Lead List'] },
         kpiColumn: 'AF', kpiLabel: '% Qualified Leads from show ups', kpiFormat: 'pct' },
       // # of new sales: exact match on Paid — the northstar win.
       { label: 'Sales',                   sublabel: 'Paid (win)',

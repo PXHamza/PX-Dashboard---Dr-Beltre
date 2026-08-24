@@ -1,30 +1,27 @@
 /**
  * Qualification.gs — PX Medical DTO lead-qualification rule.
  *
- * A lead is UNQUALIFIED when its Lead Category is:
- *   - Unqualified | After The Call
+ * Matches the tracker-sheet "# of Qualified Leads" formula exactly:
+ * a lead is qualified iff its Lead Category is NOT one of the
+ * disqualifying values below. Everything else — including
+ * "Unqualified | After The Call" (qualified through the call, then
+ * disqualified post-call) and "Cold Lead List" (a qualified cold
+ * lead) — counts as QUALIFIED.
+ *
+ * DISQUALIFYING:
  *   - Not A Fit | Application Cancelled
- *   - Cold Lead List
  *
- * A lead is JUNK when its Lead Category contains:
+ * JUNK (tracked separately from Unqualified):
  *   - Fake Lead
- *
- * Everything else counts as QUALIFIED — including active states
- * (New Lead / Meeting Booked / Call #2 / Contract Sent / Paid /
- * Qualified | Not Ready) and terminal ones that didn't disqualify
- * the lead (No RSVP - Cancelled, No show, Lost).
  */
 
 const QUALIFICATION = {
   DISQUALIFYING_KEYWORDS: [
-    'unqualified',            // "Unqualified | After The Call"
     'not a fit',              // "Not A Fit | Application Cancelled"
-    'application cancel',     // (matches "Application Cancelled" / "Canceled")
-    'cold lead',              // "Cold Lead List"
-    'cold list'
+    'application cancel'      // matches "Application Cancelled" / "Canceled"
   ],
   JUNK_KEYWORDS: [
-    'fake'
+    'fake'                    // "Fake Lead"
   ]
 };
 
