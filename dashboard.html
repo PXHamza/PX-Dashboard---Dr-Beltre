@@ -1198,19 +1198,55 @@ function paintMissingTable(elId, rows) {
 // One panel per funnel defined in Stages.gs FUNNELS. Each panel is a
 // horizontal row of stage columns: big number, label, sublabel, and the
 // step-to-step % (this-step / prior-step). The first step is always
-// "100.0%" (baseline). The vertical bar at the bottom of each column is
-// proportional to that step's share of the FIRST step, giving a
-// Klaviyo-style tapering funnel shape — so bar heights still show the
-// overall funnel taper while the percentage number shows the immediate
-// step-to-step conversion the client cares about.
+// "100.0%" (baseline).
+//
+// The vertical bar at the bottom of each column uses TWO scales when
+// the first step is a traffic-source metric (Meta clicks):
+//   1) The traffic bar renders full-height as a context bar.
+//   2) Every subsequent lead-count bar scales relative to the largest
+//      in-funnel count, so the Landing-Page-CVR-onwards drop-off is
+//      legible. (Otherwise a 488-clicks -> 21-leads jump pins every
+//      downstream bar at ~2%.)
+// Funnels without a traffic step fall back to the original single
+// scale — each bar = its share of the first step.
 function paintFunnels(funnels) {
   const root = document.getElementById('overviewFunnels');
   if (!funnels || !funnels.length) { root.innerHTML = ''; return; }
   root.innerHTML = funnels.map((f, fi) => {
     const cls = 'funnel' + (fi > 0 ? ' secondary' : '');
+
+    // Bar-height baseline. Scaling every bar off the very first step
+    // (Total Clicks) pins every downstream lead-count bar at 1-4% of
+    // height because Meta impressions dwarf form submissions by two
+    // orders of magnitude. Detect a traffic-source first step and put
+    // it on its own scale — its bar renders full-height as a context
+    // bar; every subsequent lead-count bar scales off the largest
+    // in-funnel count so the drop-off is actually legible.
+    const isTrafficFirst = f.steps.length > 0 && !!f.steps[0].externalMetric;
+    let leadMax = 0;
+    if (isTrafficFirst) {
+      for (let j = 1; j < f.steps.length; j++) {
+        if (f.steps[j].count > leadMax) leadMax = f.steps[j].count;
+      }
+    }
+
     const steps = f.steps.map((s, i) => {
-      // Bar height still tapers relative to the first step.
-      const heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
+      let heightPct;
+      if (isTrafficFirst && i === 0) {
+        // Traffic-source context bar: always full-height. The signed
+        // delta text under the number carries the "how close to target"
+        // signal — the bar itself just says "here is the top of funnel".
+        heightPct = 100;
+      } else if (isTrafficFirst && leadMax > 0) {
+        // Lead-count bar: scale to the largest in-funnel count so
+        // Landing Page CVR renders full-height and everything downstream
+        // tapers off it. This shows the real lead-side drop-off.
+        heightPct = Math.max(2, Math.round((s.count / leadMax) * 100));
+      } else {
+        // Funnel with no traffic step — keep the original single-scale
+        // behaviour (bar as % of the first step).
+        heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
+      }
 
       // Percentage below the number. Two modes:
       //   Step 0 (Total Clicks): if a KPI target (int) is present, we
