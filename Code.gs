@@ -912,7 +912,12 @@ function computeFunnels(rows, traffic, monthlyKpis) {
       const out = {
         label:    step.label,
         sublabel: step.sublabel || '',
-        count:    count
+        count:    count,
+        // externalMetric is echoed so the client can spot a traffic-source
+        // step (e.g. Meta clicks) and put its bar on a separate scale from
+        // the lead-count bars — otherwise 488 clicks vs 21 leads pins every
+        // downstream bar at ~2% of height and the drop-off is invisible.
+        externalMetric: step.externalMetric || null
       };
       // Optional per-step KPI pulled from row 4 of the latest overlapping
       // monthly sheet. If the cell is blank the client renders "-" and
