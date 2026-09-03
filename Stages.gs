@@ -125,12 +125,12 @@ const FUNNELS = [
       { label: 'Landing Page CVR',        sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*',
         kpiColumn: 'AB', kpiLabel: '% Landing Page Conversion',       kpiFormat: 'pct' },
-      // # of Qualified Leads: excludes ONLY Not A Fit and Fake Lead.
-      // (Unqualified | After The Call and Cold Lead List still count
-      //  as qualified per the tracker-sheet formula.)
-      { label: 'Qualified Leads',         sublabel: 'Excl. Not A Fit and Fake Lead',
-        count: { excludeCategories: ['Not A Fit | Application Cancelled',
-                                     'Fake Lead'] },
+      // # of Qualified Leads: excludes ONLY Not A Fit | Application
+      // Cancelled — everything else (Unqualified | After The Call, Cold
+      // Lead List, even Fake Lead) counts as a qualified lead per the
+      // tracker-sheet formula.
+      { label: 'Qualified Leads',         sublabel: 'Excl. Not A Fit | Application Cancelled',
+        count: { excludeCategories: ['Not A Fit | Application Cancelled'] },
         kpiColumn: 'AC', kpiLabel: '% Qualified lead rate',           kpiFormat: 'pct' },
       // # Booked Consults: also excludes New Lead (Not Booked) and
       // Cold Lead List (no consult ever booked for either).
