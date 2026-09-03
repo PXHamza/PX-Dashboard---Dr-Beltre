@@ -179,23 +179,28 @@ const FUNNELS = [
       //
       // Each step also references a ROW-3 (Target KPIs) column from the
       // newest monthly sheet in the range. The card renders it as
-      // "Target: <value>" under the sublabel. Full row-3 column map:
+      // "KPI: <value>" under the sublabel. Full row-3 column map
+      // (updated Sep-2026 — two new columns inserted, AA = # of awaiting
+      //  finance and AK = % Awaiting Finance From Qualified Show Up;
+      //  everything after each insertion shifted one column right):
       //   D  Cost Per Lead           M  (blank)               W  # Booked Consults
       //   E  Cost Per Qualified Lead N  CPM                   X  # of Consults Due
       //   F  Cost per booked call    O  Ad Spend              Y  # of Show ups
       //   G  Cost Per Show Up        P  CPLC                  Z  # of qualified show ups
-      //   H  Cost Per Qual. Show Up  Q  U. Outbound Clicks    AA # of new GLP-1
-      //   I  CAC                     R  U.O. CTR              AB # of new Surgeries
-      //   J  Total pipeline gen.     T  # of Leads            AD % Landing Page Conversion
-      //   K  Total Revenue closed    U  # of Qualified Leads  AE % Qualified lead rate
-      //   L  ROI                     V  # of GLP-1 Downsell   AF % GLP-1 Downsell rate
-      //                                                       AG % good fit → book consult
-      //                                                       AH % show up rate
-      //                                                       AI % Qualified from show ups
-      //                                                       AJ % Close Rate (GLP-1)
-      //                                                       AK % Close Rate (Surgery)
+      //   H  Cost Per Qual. Show Up  Q  U. Outbound Clicks    AA # of awaiting finance  (NEW)
+      //   I  CAC                     R  U.O. CTR              AB # of new GLP-1
+      //   J  Total pipeline gen.     T  # of Leads            AC # of new Surgeries
+      //   K  Total Revenue closed    U  # of Qualified Leads  AE % Landing Page Conversion
+      //   L  ROI                     V  # of GLP-1 Downsell   AF % Qualified lead rate
+      //                                                       AG % GLP-1 Downsell rate
+      //                                                       AH % good fit → book consult
+      //                                                       AI % show up rate
+      //                                                       AJ % Qualified from show ups
+      //                                                       AK % Awaiting Finance From Qual. Show Up  (NEW)
+      //                                                       AL % Close Rate (GLP-1)
+      //                                                       AM % Close Rate (Surgery)
       // Column mapping below mixes count and rate KPIs — Q for clicks
-      // (raw count) and the AD-AK rate columns for the rest so each step
+      // (raw count) and the AE-AM rate columns for the rest so each step
       // shows the % that corresponds to its transition. If a row-3 cell
       // is blank the card shows "-" (never fabricated).
       // Counts below mirror the tracker-sheet COUNTIFS formulas 1:1
@@ -206,19 +211,19 @@ const FUNNELS = [
         kpiColumn: 'Q',  kpiLabel: 'Clicks',                       kpiFormat: 'int' },
       { label: 'Landing Page CVR',        sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*',
-        kpiColumn: 'AD', kpiLabel: '% Landing Page Conversion',    kpiFormat: 'pct' },
+        kpiColumn: 'AE', kpiLabel: '% Landing Page Conversion',    kpiFormat: 'pct' },
       // # of Qualified Leads: E<>Unqualified Auto, E<>DND Enabled,
       //                      X<>GLP-1 Downsell.
       { label: 'Good Fit Lead in Funnel', sublabel: 'Surgery-eligible (excl. Unqualified Auto, DND, GLP-1)',
         count: { excludeCategories: ['Unqualified Auto', 'DND Enabled'],
                  excludeGlpDownsell: true },
-        kpiColumn: 'AE', kpiLabel: '% Qualified lead rate',        kpiFormat: 'pct' },
+        kpiColumn: 'AF', kpiLabel: '% Qualified lead rate',        kpiFormat: 'pct' },
       // # Booked Consults: also excludes New Lead / Tried Contacting.
       { label: 'Calendar Bookings',       sublabel: 'Past the "still-contacting" phase',
         count: { excludeCategories: ['New Lead', 'Tried Contacting',
                                      'Unqualified Auto', 'DND Enabled'],
                  excludeGlpDownsell: true },
-        kpiColumn: 'AG', kpiLabel: '% good fit → book consult',    kpiFormat: 'pct' },
+        kpiColumn: 'AH', kpiLabel: '% good fit → book consult',    kpiFormat: 'pct' },
       // # of Consults Done (# of Consults Due formula, col X): all
       // leads past the "still-scheduled" phase — Booked Consult also
       // excluded. Inserting this step ensures Show Up Rate's step-to-
@@ -236,18 +241,18 @@ const FUNNELS = [
                                      'Unqualified Auto', 'Booked Consult',
                                      'No Show', 'DND Enabled'],
                  excludeGlpDownsell: true },
-        kpiColumn: 'AH', kpiLabel: '% show up rate',               kpiFormat: 'pct' },
+        kpiColumn: 'AI', kpiLabel: '% show up rate',               kpiFormat: 'pct' },
       // # of qualified show ups: also excludes the manual Unqualified stage.
       { label: 'Good Fit Post Consult',   sublabel: 'Qualified after the consult',
         count: { excludeCategories: ['New Lead', 'Tried Contacting',
                                      'Unqualified Auto', 'Booked Consult',
                                      'No Show', 'Unqualified', 'DND Enabled'],
                  excludeGlpDownsell: true },
-        kpiColumn: 'AI', kpiLabel: '% Qualified Leads from show ups', kpiFormat: 'pct' },
+        kpiColumn: 'AJ', kpiLabel: '% Qualified Leads from show ups', kpiFormat: 'pct' },
       // # of new Surgeries: exact match on "Booked Surgery".
       { label: 'Sales',                   sublabel: 'Booked Surgery (win)',
         count: { matchCategories: ['Booked Surgery'] },
-        kpiColumn: 'AK', kpiLabel: '% Close Rate (Surgery)',       kpiFormat: 'pct' }
+        kpiColumn: 'AM', kpiLabel: '% Close Rate (Surgery)',       kpiFormat: 'pct' }
     ]
   },
 
@@ -260,7 +265,7 @@ const FUNNELS = [
     title:    'GLP-1 Downsell Funnel',
     subtitle: 'Secondary — auto-routed at form when a lead doesn\'t qualify for surgery',
     steps: [
-      // Uses Q for the click count and the AF/AJ rate columns for the
+      // Uses Q for the click count and the AG/AL rate columns for the
       // downsell and close-rate steps. "Landing Page CVR" is intentionally
       // omitted — leads auto-route straight from form submission to
       // GLP-1, so no separate CVR step is meaningful here.
@@ -270,11 +275,11 @@ const FUNNELS = [
       // # of GLP-1 Downsell: X = "GLP-1 Downsell".
       { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Auto-routed to GLP-1 (flag column X)',
         count: { matchGlpDownsell: true },
-        kpiColumn: 'AF', kpiLabel: '% GLP-1 Downsell rate',  kpiFormat: 'pct' },
+        kpiColumn: 'AG', kpiLabel: '% GLP-1 Downsell rate',  kpiFormat: 'pct' },
       // # of new GLP-1: E = "Won (GLP -1)".
       { label: 'Sales',                    sublabel: 'GLP-1 purchased (win)',
         count: { matchCategories: ['Won (GLP -1)'] },
-        kpiColumn: 'AJ', kpiLabel: '% Close Rate (GLP-1)',   kpiFormat: 'pct' }
+        kpiColumn: 'AL', kpiLabel: '% Close Rate (GLP-1)',   kpiFormat: 'pct' }
     ]
   }
 ];
