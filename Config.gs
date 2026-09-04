@@ -1,5 +1,5 @@
 /**
- * Config.gs — PX Medical DTO.
+ * Config.gs — Dr Athré.
  *
  * The ONLY file you edit when deploying this dashboard for a new client:
  *   1) CONFIG.DATA_SHEET    — the tab that holds the raw lead rows.
@@ -28,13 +28,13 @@ const CONFIG = {
   //    Set a value to '' to disable that field entirely.
   // ---------------------------------------------------------------------------
   COLUMNS: {
-    // Full DTO Lead Data column map (from client spec):
+    // Full Dr Athré Lead Data column map (from client screenshots):
     //   A Date            H Lead Value         O Creative Preview Link
     //   B Name            I Sale Revenue       P Ad Thumbnail
     //   C Email           J Source             Q Page Variant
     //   D Phone Number    K Campaign ID        R Fbclid
     //   E Lead Category   L Ad set ID          S Funnel Type
-    //   F Booked Call     M Ad ID              T-AD Form questions
+    //   F Booked Call     M Ad ID              T-Y Form questions
     //     Time            N Preview Link
     //   G Sales team notes
     //
@@ -74,9 +74,9 @@ const CONFIG = {
     adThumbnailFallback: 'P',
 
     // ---- Secondary auto-routing category flag -------------------------
-    // DTO has no secondary auto-routing column (unlike Dr Beltre's GLP-1
-    // downsell in col X). Left blank so the funnel counts don't try to
-    // filter on a non-existent column.
+    // Dr Athré has no secondary auto-routing column (unlike Dr Beltre's
+    // GLP-1 downsell in col X). Left blank so the funnel counts don't
+    // try to filter on a non-existent column.
     glpDownsellFlag:     ''
   },
 
@@ -88,7 +88,7 @@ const CONFIG = {
   // 3) Brand — dialog header + chart accent.
   // ---------------------------------------------------------------------------
   BRAND: {
-    title:    'PX Medical DTO',
+    title:    'Dr Athré Insights',
     subtitle: 'Funnel Quality & Ad Performance',
     logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
@@ -112,26 +112,31 @@ const CONFIG = {
 // =============================================================================
 
 const FORM_QUESTIONS = [
-  { header: 'typical value of the procedure',
-    label:  'Case Value',                             type: 'choice', topN: 8 },
-  { header: 'how many additional surgeries',
-    label:  'Extra Surgeries / Month',                type: 'choice', topN: 8 },
-  { header: 'what marketing are you doing right now',
-    label:  'Current Marketing',                      type: 'choice', topN: 10 },
-  { header: 'what marketing are you doing right now? (other)',
-    label:  'Current Marketing (Other)',              type: 'text',   topN: 25 },
-  { header: 'problem you need solved',
-    label:  'Problem to Solve',                       type: 'text',   topN: 25 },
-  { header: 'when do you need more qualified leads',
-    label:  'Timing',                                 type: 'choice', topN: 6 },
-  { header: 'best describes your role in the practice',
-    label:  'Role',                                   type: 'choice', topN: 8 },
-  { header: 'best describes your role in your practice ? (other)',
-    label:  'Role (Other)',                           type: 'text',   topN: 20 },
-  { header: 'anything else we should know',
-    label:  'Additional Context',                     type: 'text',   topN: 25 },
-  { header: 'invest this level of ad spend',
-    label:  '$5k/mo Ad Spend Ready?',                 type: 'choice', topN: 4 },
-  { header: 'practice url',
-    label:  'Practice URL',                           type: 'text',   topN: 20 }
+  // T — What matters most to you when choosing a facial plastic surgeon?
+  //     Free-text answer (respondents check multiple attributes) so use text.
+  { header: 'matters most to you when choosing a facial plastic surgeon',
+    label:  'What matters most',                       type: 'text',   topN: 25 },
+
+  // U — When would you ideally like to have your facial rejuvenation completed?
+  //     Bounded choice (Within 12 months, 3-6 months, etc.).
+  { header: 'have your facial rejuvenation completed',
+    label:  'Ideal Timing',                            type: 'choice', topN: 6 },
+
+  // V — Financial readiness for the $35,000+ investment. Choice with
+  //     "Yes" / "Yes, and I would like to explore financing options" / etc.
+  { header: 'financially prepared to make an investment',
+    label:  '$35k+ Financially Ready?',                type: 'choice', topN: 4 },
+
+  // W — Consent: understands Dr Athré recommends the approach he thinks best.
+  //     Yes / No confirmation.
+  { header: 'analyze my entire face and recommend the approach',
+    label:  'Accepts Recommendation Approach?',        type: 'choice', topN: 4 },
+
+  // X — Consent: understands application ≠ guaranteed consultation ($200 fee).
+  { header: 'completing this application does not guarantee a consultation',
+    label:  'Understands $200 Consult Fee?',           type: 'choice', topN: 4 },
+
+  // Y — What else would you like Dr Athré to understand? Free-text notes.
+  { header: 'what else would you like dr',
+    label:  'Additional Context',                      type: 'text',   topN: 25 }
 ];

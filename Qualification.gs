@@ -1,17 +1,21 @@
 /**
- * Qualification.gs — PX Medical DTO lead-qualification rule.
+ * Qualification.gs — Dr Athré lead-qualification rule.
  *
- * Matches the tracker-sheet "# of Qualified Leads" formula exactly:
- * a lead is qualified iff its Lead Category is NOT one of the
- * disqualifying values below. Everything else — including
- * "Unqualified | After The Call" (qualified through the call, then
- * disqualified post-call) and "Cold Lead List" (a qualified cold
- * lead) — counts as QUALIFIED.
+ * NOTE: The full CRM stage list wasn't shared at setup time. The two
+ * visible stages in the screenshots — "New Lead (Not Booked)" and
+ * "Meeting Booked" — match Dr Athré's sister practice PX Medical DTO's
+ * naming, so the rule below defaults to DTO's qualification logic
+ * (which mirrors the tracker-sheet "# of Qualified Leads" formula 1:1).
  *
- * DISQUALIFYING:
+ * Update this file when the client confirms which categories should
+ * disqualify a lead. The defaults are conservative — only categories
+ * that explicitly say "not a fit" / "application cancelled" disqualify,
+ * and only "fake" categories count as junk.
+ *
+ * DISQUALIFYING (default):
  *   - Not A Fit | Application Cancelled
  *
- * JUNK (tracked separately from Unqualified):
+ * JUNK (default, tracked separately from Unqualified):
  *   - Fake Lead
  */
 

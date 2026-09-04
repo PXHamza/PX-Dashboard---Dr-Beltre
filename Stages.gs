@@ -1,16 +1,22 @@
 /**
- * Stages.gs — PX Medical DTO pipeline stages for the "Funnel Stages" tab.
+ * Stages.gs — Dr Athré pipeline stages for the "Funnel Stages" tab.
  *
- * Ordered as the CRM flows: form submission → booking → call → close.
+ * NOTE: The client only shared two visible stages so far — "New Lead
+ * (Not Booked)" and "Meeting Booked" — matching Dr Athré's sister
+ * practice PX Medical DTO's naming. The default stage list below
+ * mirrors DTO's 13 categories as a working template. Update this file
+ * when the client confirms their actual CRM stages; the FUNNELS block
+ * below will pick up any name change through classifyStage's substring
+ * matching without further edits.
  *
  * Notes:
  *   - "Paid" is the northstar win (won:true).
  *   - "Unqualified | After The Call", "Not A Fit | Application Cancelled",
- *     "Fake Lead", and "Cold Lead List" all disqualify the lead (see
- *     Qualification.gs).
+ *     "Fake Lead", and "Cold Lead List" are terminal branches — see
+ *     Qualification.gs for which ones actually disqualify the lead.
  *   - Substring-matching keywords are ordered defensively — every match
  *     list is chosen so no keyword accidentally hits a later stage's
- *     label (e.g. "cancelled" appears in TWO stage names, so we never
+ *     label (e.g. "cancelled" appears in two stage names, so we never
  *     use that word alone as a keyword).
  */
 
@@ -73,8 +79,8 @@ const FEATURED_METRICS = [
 
 /**
  * NOTE_BREAKDOWN_STAGES — stages whose Sales-team notes are worth
- * charting as top reasons (e.g. "Auto Unqualified - Under 30 pounds").
- * DTO doesn't have structured note codes yet, so left empty.
+ * charting as top reasons. Dr Athré doesn't have structured note codes
+ * yet, so left empty.
  */
 const NOTE_BREAKDOWN_STAGES = [];
 
@@ -86,26 +92,21 @@ const NOTE_BREAKDOWN_STAGES = [];
  * See Code.gs `computeFunnels` for the full step spec. Key fields:
  *   externalMetric  'clicks' from the monthly Meta tab.
  *   stageNames      '*ALL*' | '*QUALIFIED*' | [stage names]
- *   count           { matchCategories, excludeCategories,
- *                     matchGlpDownsell, excludeGlpDownsell }
+ *   count           { matchCategories, excludeCategories }
  *                   — mirrors tracker-sheet COUNTIFS exactly.
  *   kpiColumn       Row-3 (Target KPIs) letter on the newest monthly
  *                   sheet in range. Renders as "KPI: <value>".
  *   kpiFormat       'money' | 'money2' | 'pct' | 'int' | 'ratio' | 'raw'.
- *                   For 'pct' the dashboard colours the step-to-step %
- *                   red when actual < target, green when at/above.
- *   kpiLabel        Legacy field kept for future use; the label is not
- *                   printed in the current KPI-line render.
  */
 const FUNNELS = [
   {
     title:    'Sales Funnel',
-    subtitle: 'Meta click → form submission → booked call → paid.',
+    subtitle: 'Meta click → form submission → booked consult → paid.',
     steps: [
       // -------------------------------------------------------------------
-      // Row-3 (Target KPIs) column map for PX Medical DTO's monthly sheet
-      // ("AUG - 2026", "SEP - 2026", …). Row 2 = headers, row 3 = targets,
-      // row 4 = totals.
+      // Row-3 (Target KPIs) column map for Dr Athré's monthly sheet
+      // ("SEP - 2026", "OCT - 2026", …). Row 2 = headers, row 3 = targets,
+      // row 4 = totals — identical layout to PX Medical DTO's tracker.
       //
       //   D  Cost Per Lead           N  CPM                   V  # Booked Consults
       //   E  Cost Per Qualified Lead O  Ad Spend              W  # of Consults Due
@@ -125,25 +126,24 @@ const FUNNELS = [
       { label: 'Landing Page CVR',        sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*',
         kpiColumn: 'AB', kpiLabel: '% Landing Page Conversion',       kpiFormat: 'pct' },
-      // # of Qualified Leads: excludes ONLY Not A Fit | Application
-      // Cancelled — everything else (Unqualified | After The Call, Cold
-      // Lead List, even Fake Lead) counts as a qualified lead per the
-      // tracker-sheet formula.
-      { label: 'Qualified Leads',         sublabel: 'Excl. Not A Fit | Application Cancelled',
-        count: { excludeCategories: ['Not A Fit | Application Cancelled'] },
+      // # of Qualified Leads — DEFAULT: exclude only Not A Fit and Fake
+      // Lead. Update if Dr Athré uses a different set of disqualifying
+      // categories.
+      { label: 'Qualified Leads',         sublabel: 'Excl. Not A Fit and Fake Lead',
+        count: { excludeCategories: ['Not A Fit | Application Cancelled',
+                                     'Fake Lead'] },
         kpiColumn: 'AC', kpiLabel: '% Qualified lead rate',           kpiFormat: 'pct' },
-      // # Booked Consults: also excludes New Lead (Not Booked) and
-      // Cold Lead List (no consult ever booked for either).
-      { label: 'Booked Consults',         sublabel: 'A meeting was scheduled',
+      // # Booked Consults — DEFAULT: also excludes New Lead (Not Booked)
+      // and Cold Lead List (no consult booked for either).
+      { label: 'Booked Consults',         sublabel: 'A consultation was scheduled',
         count: { excludeCategories: ['New Lead (Not Booked)',
                                      'Not A Fit | Application Cancelled',
                                      'Fake Lead',
                                      'Cold Lead List'] },
         kpiColumn: 'AD', kpiLabel: '% good fit → book consult',       kpiFormat: 'pct' },
-      // # of Consults Due: also excludes Meeting Booked (still-scheduled)
+      // # of Consults Due — also excludes Meeting Booked (still-scheduled)
       // and No RSVP - Cancelled (cancelled before it happened).
-      // Denominator for Show Up Rate below — matches the tracker Show
-      // Up % formula (Y / X).
+      // Denominator for Show Up Rate — matches Show Up % = Y / X.
       { label: 'Consults Done',           sublabel: 'Past the "still-scheduled" phase',
         count: { excludeCategories: ['New Lead (Not Booked)',
                                      'Meeting Booked',
@@ -151,9 +151,8 @@ const FUNNELS = [
                                      'Not A Fit | Application Cancelled',
                                      'Fake Lead',
                                      'Cold Lead List'] },
-        kpiColumn: 'W',  kpiLabel: 'Target consults due',            kpiFormat: 'int' },
-      // # of Show ups: also excludes No show. Includes Unqualified |
-      // After The Call — the person showed up before being disqualified.
+        kpiColumn: 'W',  kpiLabel: 'Target consults due',             kpiFormat: 'int' },
+      // # of Show ups — also excludes No show.
       { label: 'Show Up Rate',            sublabel: 'Attended the consult',
         count: { excludeCategories: ['New Lead (Not Booked)',
                                      'Meeting Booked',
@@ -163,8 +162,8 @@ const FUNNELS = [
                                      'Fake Lead',
                                      'Cold Lead List'] },
         kpiColumn: 'AE', kpiLabel: '% show up rate',                  kpiFormat: 'pct' },
-      // # of qualified show ups: also excludes Unqualified | After The
-      // Call — attended AND stayed qualified post-call.
+      // # of qualified show ups — also excludes Unqualified | After The
+      // Call. Attended AND stayed qualified post-call.
       { label: 'Qualified Show Ups',      sublabel: 'Attended and stayed qualified post-call',
         count: { excludeCategories: ['New Lead (Not Booked)',
                                      'Meeting Booked',
@@ -175,7 +174,7 @@ const FUNNELS = [
                                      'Fake Lead',
                                      'Cold Lead List'] },
         kpiColumn: 'AF', kpiLabel: '% Qualified Leads from show ups', kpiFormat: 'pct' },
-      // # of new sales: exact match on Paid — the northstar win.
+      // # of new sales — exact match on Paid (the northstar).
       { label: 'Sales',                   sublabel: 'Paid (win)',
         count: { matchCategories: ['Paid'] },
         kpiColumn: 'AG', kpiLabel: '% Close Rate',                    kpiFormat: 'pct' }
