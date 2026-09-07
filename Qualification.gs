@@ -1,31 +1,36 @@
 /**
  * Qualification.gs — Dr Athré lead-qualification rule.
  *
- * NOTE: The full CRM stage list wasn't shared at setup time. The two
- * visible stages in the screenshots — "New Lead (Not Booked)" and
- * "Meeting Booked" — match Dr Athré's sister practice PX Medical DTO's
- * naming, so the rule below defaults to DTO's qualification logic
- * (which mirrors the tracker-sheet "# of Qualified Leads" formula 1:1).
+ * Matches the tracker-sheet "# of Qualified Leads" formula 1:1 — a
+ * lead is qualified iff its Lead Category is NOT one of the disqualifying
+ * values below AND its Lead Category 2.0 flag (col Z) is not
+ * "GLP-1 Downsell". Everything else — including "Waiting for Finance",
+ * "Cold Leads", "Lost", and any of the active mid-funnel stages —
+ * counts as QUALIFIED.
  *
- * Update this file when the client confirms which categories should
- * disqualify a lead. The defaults are conservative — only categories
- * that explicitly say "not a fit" / "application cancelled" disqualify,
- * and only "fake" categories count as junk.
+ * DISQUALIFYING (from the # of Qualified Leads COUNTIFS):
+ *   - Unqualified (Automatic)          — auto-tagged at form submission
+ *   - Unqualified (Post Call)          — manually tagged after the consult
  *
- * DISQUALIFYING (default):
- *   - Not A Fit | Application Cancelled
- *
- * JUNK (default, tracked separately from Unqualified):
+ * JUNK (tracked separately):
  *   - Fake Lead
+ *
+ * Note: the GLP-1 Downsell flag exclusion is handled inside computeFunnels
+ * via `excludeGlpDownsell: true` on each funnel step (see Stages.gs) —
+ * isQualified() itself only looks at the Lead Category. The quality donut
+ * therefore counts GLP-1 leads as either Qualified or Unqualified depending
+ * on their Lead Category, which matches the tracker's semantics.
  */
 
 const QUALIFICATION = {
   DISQUALIFYING_KEYWORDS: [
-    'not a fit',              // "Not A Fit | Application Cancelled"
-    'application cancel'      // matches "Application Cancelled" / "Canceled"
+    'unqualified (automatic)',   // "Unqualified (Automatic)"
+    'unqualified automatic',
+    'unqualified (post call)',   // "Unqualified (Post Call)"
+    'unqualified post call'
   ],
   JUNK_KEYWORDS: [
-    'fake'                    // "Fake Lead"
+    'fake'                       // "Fake Lead"
   ]
 };
 

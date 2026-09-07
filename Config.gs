@@ -74,10 +74,13 @@ const CONFIG = {
     adThumbnailFallback: 'P',
 
     // ---- Secondary auto-routing category flag -------------------------
-    // Dr Athré has no secondary auto-routing column (unlike Dr Beltre's
-    // GLP-1 downsell in col X). Left blank so the funnel counts don't
-    // try to filter on a non-existent column.
-    glpDownsellFlag:     ''
+    // Column Z in Lead Data — the "Lead Category 2.0" style column that
+    // holds "GLP-1 Downsell" for leads auto-routed onto the GLP-1 track
+    // at form submission. Referenced by the tracker-sheet COUNTIFS
+    // formulas ('Lead Data'!$Z:$Z, "<>GLP-1 Downsell") so the dashboard
+    // uses the same field to keep the Booked Surgery and GLP-1 funnels
+    // separate (surgery excludes it, GLP-1 requires it).
+    glpDownsellFlag:     'Z'
   },
 
   // ---------------------------------------------------------------------------
