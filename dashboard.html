@@ -1188,10 +1188,33 @@ function paintFunnels(funnels) {
   if (!funnels || !funnels.length) { root.innerHTML = ''; return; }
   root.innerHTML = funnels.map((f, fi) => {
     const cls = 'funnel' + (fi > 0 ? ' secondary' : '');
+    // Bar-height baseline. Scaling every bar off the very first step
+    // (Total Clicks) pins every downstream lead-count bar at 1-4% of
+    // height because Meta impressions dwarf form submissions by two
+    // orders of magnitude. Detect a traffic-source first step and put
+    // it on its own scale — its bar renders full-height as a context
+    // bar; every subsequent lead-count bar scales off the largest
+    // in-funnel count so the drop-off is actually legible.
+    const isTrafficFirst = f.steps.length > 0 && !!f.steps[0].externalMetric;
+    let leadMax = 0;
+    if (isTrafficFirst) {
+      for (let j = 1; j < f.steps.length; j++) {
+        if (f.steps[j].count > leadMax) leadMax = f.steps[j].count;
+      }
+    }
+
     const steps = f.steps.map((s, i) => {
-      // Bar height as % of the wrapper. Force a small minimum so even
-      // zero-count steps show a sliver.
-      const heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
+      // Bar height — dual scale when the first step is traffic-sourced.
+      // Traffic bar full-height (context); lead bars scaled to the
+      // largest in-funnel count so the drop-off is visible.
+      let heightPct;
+      if (isTrafficFirst && i === 0) {
+        heightPct = 100;
+      } else if (isTrafficFirst && leadMax > 0) {
+        heightPct = Math.max(2, Math.round((s.count / leadMax) * 100));
+      } else {
+        heightPct = Math.max(2, Math.round(s.pctOfFirst * 100));
+      }
       // pctOfPrev is null when the prior step had zero — e.g. Total
       // Clicks step returns 0 because no monthly sheet data is loaded
       // yet. Show "—" instead of a misleading 0.0%.
