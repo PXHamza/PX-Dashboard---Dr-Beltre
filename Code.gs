@@ -905,7 +905,10 @@ function computeFunnels(rows, traffic) {
       return {
         label:    step.label,
         sublabel: step.sublabel || '',
-        count:    count
+        count:    count,
+        // externalMetric is echoed so the client can spot a traffic-source
+        // step and put its bar on a separate scale from the lead-count bars.
+        externalMetric: step.externalMetric || null
       };
     });
 
