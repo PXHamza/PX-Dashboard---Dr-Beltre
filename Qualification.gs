@@ -1,28 +1,36 @@
 /**
- * Qualification.gs — Dr Bensoussan lead-qualification rule.
+ * Qualification.gs — Obesity Control Centre (OCC) lead-qualification rule.
  *
- * Mirrors the client's "# of qualified show ups" formula semantics:
- * a lead is NOT qualified when its Lead Category is one of the
- * disqualifying values below. Everything else counts as qualified.
+ * NOTE on # of Qualified Leads: the tracker-sheet formula for "# of
+ * Qualified Leads" is identical to "# of Leads" (no filter) — so from
+ * a tracker perspective every lead is "qualified" at submission. The
+ * actual qualification happens post-call via the "Unqualified (Post
+ * Call 1)" stage.
+ *
+ * For the dashboard's quality donut and quality-by-campaign charts we
+ * still want a meaningful qualified/unqualified split, so this file
+ * disqualifies the categories that explicitly mean "not a candidate":
  *
  * DISQUALIFYING:
- *   - DQ Automatic                — auto-tagged at form submission
  *   - Unqualified (Post Call 1)   — manually tagged after the first call
+ *   - Patients with Problems      — flagged problem leads (unlikely to buy)
  *
  * JUNK:
- *   (none wired for Dr Bensoussan — the client's CRM doesn't have an
- *   explicit junk / fake-lead bucket. Add here if one gets introduced.)
+ *   - Duplicate                   — same patient as another row; not a
+ *                                   real new lead for quality purposes
  */
 
 const QUALIFICATION = {
   DISQUALIFYING_KEYWORDS: [
-    'dq automatic',               // "DQ Automatic"
-    'dq auto',
-    'unqualified (post call 1)',  // "Unqualified (Post Call 1)"
+    'unqualified (post call 1)',   // "Unqualified (Post Call 1)"
     'unqualified post call 1',
-    'post call 1'
+    'post call 1',
+    'patients with problems'       // "Patients with Problems"
   ],
-  JUNK_KEYWORDS: []
+  JUNK_KEYWORDS: [
+    'duplicate',                   // "Duplicate"
+    'fake'                         // defensive — no "Fake Lead" stage today
+  ]
 };
 
 /**
