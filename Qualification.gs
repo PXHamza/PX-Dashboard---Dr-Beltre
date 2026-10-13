@@ -1,23 +1,25 @@
 /**
- * Qualification.gs — Dr Bensoussan lead-qualification rule.
+ * Qualification.gs — Ploome lead-qualification rule.
  *
  * Mirrors the client's "# of qualified show ups" formula semantics:
  * a lead is NOT qualified when its Lead Category is one of the
  * disqualifying values below. Everything else counts as qualified.
  *
+ * Note on # of Qualified Leads: the tracker-sheet formula for "# of
+ * Qualified Leads" is identical to "# of Leads" (no filter) — Ploome
+ * has no form-time auto-DQ bucket. Qualification happens post-call via
+ * the "Unqualified (Post Call 1)" stage, so that's the only entry here.
+ *
  * DISQUALIFYING:
- *   - DQ Automatic                — auto-tagged at form submission
  *   - Unqualified (Post Call 1)   — manually tagged after the first call
  *
  * JUNK:
- *   (none wired for Dr Bensoussan — the client's CRM doesn't have an
- *   explicit junk / fake-lead bucket. Add here if one gets introduced.)
+ *   (none wired — Ploome's CRM doesn't have an explicit junk / fake-lead
+ *   bucket. Add here if one gets introduced.)
  */
 
 const QUALIFICATION = {
   DISQUALIFYING_KEYWORDS: [
-    'dq automatic',               // "DQ Automatic"
-    'dq auto',
     'unqualified (post call 1)',  // "Unqualified (Post Call 1)"
     'unqualified post call 1',
     'post call 1'
