@@ -1,37 +1,28 @@
 /**
- * Qualification.gs — Dr Athré lead-qualification rule.
+ * Qualification.gs — Dr Bensoussan lead-qualification rule.
  *
- * Matches the tracker-sheet "# of Qualified Leads" formula 1:1 — a
- * lead is qualified iff its Lead Category is NOT one of the disqualifying
- * values below AND its Lead Category 2.0 flag (col Z) is not
- * "GLP-1 Downsell". Everything else — including "Waiting for Finance",
- * "Cold Leads", "Lost", and any of the active mid-funnel stages —
- * counts as QUALIFIED.
+ * Mirrors the client's "# of qualified show ups" formula semantics:
+ * a lead is NOT qualified when its Lead Category is one of the
+ * disqualifying values below. Everything else counts as qualified.
  *
- * DISQUALIFYING (from the # of Qualified Leads COUNTIFS):
- *   - Unqualified (Automatic)          — auto-tagged at form submission
- *   - Unqualified (Post Call)          — manually tagged after the consult
+ * DISQUALIFYING:
+ *   - DQ Automatic                — auto-tagged at form submission
+ *   - Unqualified (Post Call 1)   — manually tagged after the first call
  *
- * JUNK (tracked separately):
- *   - Fake Lead
- *
- * Note: the GLP-1 Downsell flag exclusion is handled inside computeFunnels
- * via `excludeGlpDownsell: true` on each funnel step (see Stages.gs) —
- * isQualified() itself only looks at the Lead Category. The quality donut
- * therefore counts GLP-1 leads as either Qualified or Unqualified depending
- * on their Lead Category, which matches the tracker's semantics.
+ * JUNK:
+ *   (none wired for Dr Bensoussan — the client's CRM doesn't have an
+ *   explicit junk / fake-lead bucket. Add here if one gets introduced.)
  */
 
 const QUALIFICATION = {
   DISQUALIFYING_KEYWORDS: [
-    'unqualified (automatic)',   // "Unqualified (Automatic)"
-    'unqualified automatic',
-    'unqualified (post call)',   // "Unqualified (Post Call)"
-    'unqualified post call'
+    'dq automatic',               // "DQ Automatic"
+    'dq auto',
+    'unqualified (post call 1)',  // "Unqualified (Post Call 1)"
+    'unqualified post call 1',
+    'post call 1'
   ],
-  JUNK_KEYWORDS: [
-    'fake'                       // "Fake Lead"
-  ]
+  JUNK_KEYWORDS: []
 };
 
 /**

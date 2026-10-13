@@ -1,5 +1,5 @@
 /**
- * Config.gs — Dr Athré.
+ * Config.gs — Dr Bensoussan.
  *
  * The ONLY file you edit when deploying this dashboard for a new client:
  *   1) CONFIG.DATA_SHEET    — the tab that holds the raw lead rows.
@@ -28,14 +28,14 @@ const CONFIG = {
   //    Set a value to '' to disable that field entirely.
   // ---------------------------------------------------------------------------
   COLUMNS: {
-    // Full Dr Athré Lead Data column map (from client screenshots):
+    // Full Dr Bensoussan Lead Data column map (from client spec):
     //   A Date            H Lead Value         O Creative Preview Link
     //   B Name            I Sale Revenue       P Ad Thumbnail
     //   C Email           J Source             Q Page Variant
     //   D Phone Number    K Campaign ID        R Fbclid
     //   E Lead Category   L Ad set ID          S Funnel Type
-    //   F Booked Call     M Ad ID              T-Y Form questions
-    //     Time            N Preview Link
+    //   F Booked Call     M Ad ID              T Close Date
+    //     Time            N Preview Link       U-AB Form questions
     //   G Sales team notes
     //
     // Every column below is documented even when it's not consumed by
@@ -62,6 +62,9 @@ const CONFIG = {
     funnelType:      'S',              // S — Funnel Type
                                         //     (present on the sheet; not yet
                                         //      surfaced in the shared dashboard)
+    closeDate:       'T',              // T — Close Date
+                                        //     (present on the sheet; not yet
+                                        //      surfaced in the shared dashboard)
     pageVariant:     'Q',              // Q — Page Variant
     fbclid:          'R',              // R — Fbclid
 
@@ -74,13 +77,10 @@ const CONFIG = {
     adThumbnailFallback: 'P',
 
     // ---- Secondary auto-routing category flag -------------------------
-    // Column Z in Lead Data — the "Lead Category 2.0" style column that
-    // holds "GLP-1 Downsell" for leads auto-routed onto the GLP-1 track
-    // at form submission. Referenced by the tracker-sheet COUNTIFS
-    // formulas ('Lead Data'!$Z:$Z, "<>GLP-1 Downsell") so the dashboard
-    // uses the same field to keep the Booked Surgery and GLP-1 funnels
-    // separate (surgery excludes it, GLP-1 requires it).
-    glpDownsellFlag:     'Z'
+    // Dr Bensoussan has no secondary auto-routing column (unlike Dr Beltre
+    // or Dr Athré which flag GLP-1 downsell leads). Left blank so the
+    // funnel counts don't try to filter on a non-existent column.
+    glpDownsellFlag:     ''
   },
 
   // ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ const CONFIG = {
   // 3) Brand — dialog header + chart accent.
   // ---------------------------------------------------------------------------
   BRAND: {
-    title:    'Dr Athré Insights',
+    title:    'Dr Bensoussan Insights',
     subtitle: 'Funnel Quality & Ad Performance',
     logoUrl:  'https://assets.cdn.filesafe.space/yCb00EnZcY7oJkJTUmkL/media/67cd73cd04d6597d4335ab4e.svg',
     linkUrl:  'https://persuasionexperience.com',
@@ -115,31 +115,42 @@ const CONFIG = {
 // =============================================================================
 
 const FORM_QUESTIONS = [
-  // T — What matters most to you when choosing a facial plastic surgeon?
-  //     Free-text answer (respondents check multiple attributes) so use text.
-  { header: 'matters most to you when choosing a facial plastic surgeon',
+  // U — What matters most to you when choosing a dentist to restore your teeth?
+  //     Free-text; respondents list multiple attributes.
+  { header: 'matters most to you when choosing a dentist',
     label:  'What matters most',                       type: 'text',   topN: 25 },
 
-  // U — When would you ideally like to have your facial rejuvenation completed?
-  //     Bounded choice (Within 12 months, 3-6 months, etc.).
-  { header: 'have your facial rejuvenation completed',
+  // V — How long have you been dealing with your current dental concerns?
+  //     Bounded choice (buckets of time).
+  { header: 'dealing with your current dental concerns',
+    label:  'Duration of Concerns',                    type: 'choice', topN: 8 },
+
+  // W — What have you already tried to improve your teeth?
+  //     Free-text; captures prior treatments.
+  { header: 'already tried to improve your teeth',
+    label:  'Prior Attempts',                          type: 'text',   topN: 25 },
+
+  // X — When would you ideally like to have your treatment completed?
+  //     Bounded choice (Within 3 months, Within 6 months, etc.).
+  { header: 'ideally like to have your treatment completed',
     label:  'Ideal Timing',                            type: 'choice', topN: 6 },
 
-  // V — Financial readiness for the $35,000+ investment. Choice with
-  //     "Yes" / "Yes, and I would like to explore financing options" / etc.
-  { header: 'financially prepared to make an investment',
-    label:  '$35k+ Financially Ready?',                type: 'choice', topN: 4 },
+  // Y — Full-arch treatment typically starts $20-30k+. Within budget?
+  //     Yes / Yes with financing / No.
+  { header: 'investment in this range within your current budget',
+    label: '$20-30k+ Within Budget?',                  type: 'choice', topN: 4 },
 
-  // W — Consent: understands Dr Athré recommends the approach he thinks best.
-  //     Yes / No confirmation.
-  { header: 'analyze my entire face and recommend the approach',
+  // Z — Consent: understands Dr Bensoussan recommends the approach he
+  //     thinks is right.
+  { header: 'evaluate my whole mouth and recommend the approach',
     label:  'Accepts Recommendation Approach?',        type: 'choice', topN: 4 },
 
-  // X — Consent: understands application ≠ guaranteed consultation ($200 fee).
-  { header: 'completing this application does not guarantee a consultation',
-    label:  'Understands $200 Consult Fee?',           type: 'choice', topN: 4 },
+  // AA — Consent: understands application ≠ guaranteed appointment.
+  { header: 'completing this application does not guarantee an appointment',
+    label:  'Understands Application Flow?',           type: 'choice', topN: 4 },
 
-  // Y — What else would you like Dr Athré to understand? Free-text notes.
+  // AB — Additional context: free text the patient wants Dr Bensoussan
+  //      to know.
   { header: 'what else would you like dr',
     label:  'Additional Context',                      type: 'text',   topN: 25 }
 ];

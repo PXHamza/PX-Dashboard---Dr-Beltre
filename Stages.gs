@@ -1,59 +1,44 @@
 /**
- * Stages.gs — Dr Athré pipeline stages.
+ * Stages.gs — Dr Bensoussan pipeline stages.
  *
- * Ordered as the CRM flows: form submission → book meeting → consult →
- * qualified post-call → book surgery → paid.
+ * Ordered as the CRM flows: form submission → book consult 1 → attend →
+ * qualified post-call → book consult 2 → waiting / lost / won.
  *
  * Notes:
- *   - "Won (Surgery)" is the northstar win (won:true). "Won (GLP -1)"
- *     is the secondary GLP-1 downsell win.
- *   - "Unqualified (Automatic)" (form-time) and "Unqualified (Post Call)"
- *     (post-consult) both disqualify — see Qualification.gs.
- *   - GLP-1 auto-routing lives in col Z ("GLP-1 Downsell" value) — see
- *     glpDownsellFlag in Config.gs. The stage list also carries a
- *     "GLP-1 Downsell" bucket for leads whose Lead Category was manually
- *     set that way.
- *   - "Cold Leads" (plural) is the stage name. The tracker formula uses
- *     the singular "Cold Lead"; both variants are covered in excludes.
+ *   - "New Patient Won" is the northstar win (won:true).
+ *   - "Good Fit, Lost The Deal" is the lost branch (lost:true).
+ *   - "DQ Automatic" (form-time) and "Unqualified (Post Call 1)"
+ *     (post-call) both disqualify — see Qualification.gs.
  *   - Substring-matching keywords are ordered defensively — every match
  *     list is chosen so no keyword accidentally hits a later stage's
- *     label (e.g. "unqualified" alone would match two stages, so we
- *     use the fully-qualified "unqualified (post call)" /
- *     "unqualified (automatic)" keywords).
+ *     label (e.g. 'consult' alone would catch "Consult 1" AND "Consult 2",
+ *     so we use the fully-qualified "consult 1" / "consult 2" keywords).
  */
 
 const STAGES = [
   { name: 'New Lead (Not Booked)',
     match: ['new lead'] },
-  { name: 'Meeting 1 Booked',
-    match: ['meeting 1 booked'] },
+  { name: 'Consult 1 - Call Booked',
+    match: ['consult 1 - call booked', 'consult 1', 'call booked'] },
   { name: 'Meeting Cancelled',
     match: ['meeting cancelled', 'meeting canceled'],                terminal: true },
   { name: 'No Show',
     match: ['no show', 'no-show'],                                   terminal: true },
-  { name: 'Qualified Post Call (Meeting 2 Booked)',
-    match: ['meeting 2 booked', 'qualified post call'] },
-  { name: 'Unqualified (Post Call)',
-    match: ['unqualified (post call)', 'unqualified post call'],     terminal: true },
-  { name: 'Unqualified (Automatic)',
-    match: ['unqualified (automatic)', 'unqualified automatic',
-            'unqualified auto'],                                     terminal: true },
-  { name: 'Waiting for Finance',
-    match: ['waiting for finance', 'awaiting finance'] },
-  { name: 'Booked Surgery',
-    match: ['booked surgery'] },
-  { name: 'GLP-1 Downsell',
-    match: ['glp-1 downsell', 'glp1 downsell'] },
-  { name: 'Won (GLP -1)',
-    match: ['won (glp -1)', 'won (glp-1)', 'won glp'],  won: true,   terminal: true },
-  { name: 'Won (Surgery)',
-    match: ['won (surgery)', 'won surgery'],            won: true,   terminal: true },
-  { name: 'Lost',
-    match: ['lost'],                                    lost: true,  terminal: true },
-  { name: 'Cold Leads',
-    match: ['cold lead'],                                            terminal: true },
-  { name: 'Fake Lead',
-    match: ['fake'],                                                 terminal: true }
+  { name: 'Unqualified (Post Call 1)',
+    match: ['unqualified (post call 1)', 'unqualified post call 1',
+            'post call 1'],                                          terminal: true },
+  { name: 'Good Fit, No Consult Booked',
+    match: ['good fit, no consult', 'no consult booked'] },
+  { name: 'Consult 2 - In Office',
+    match: ['consult 2 - in office', 'consult 2', 'in office'] },
+  { name: 'Good Fit, Waiting to Proceed',
+    match: ['good fit, waiting', 'waiting to proceed'] },
+  { name: 'Good Fit, Lost The Deal',
+    match: ['good fit, lost', 'lost the deal'],         lost: true,  terminal: true },
+  { name: 'New Patient Won',
+    match: ['new patient won', 'new patient'],          won: true,   terminal: true },
+  { name: 'DQ Automatic',
+    match: ['dq automatic', 'dq auto'],                              terminal: true }
 ];
 
 /**
@@ -62,34 +47,35 @@ const STAGES = [
  * rendered as one card. Set to [] to hide.
  */
 const FEATURED_METRICS = [
-  // Meeting booked = anyone who booked Meeting 1, whether or not the
-  // call has happened yet. Includes every downstream post-booking stage.
-  { label: 'Meeting Booked %', stageNames: ['Meeting 1 Booked',
-                                             'Meeting Cancelled', 'No Show',
-                                             'Qualified Post Call (Meeting 2 Booked)',
-                                             'Unqualified (Post Call)',
-                                             'Waiting for Finance',
-                                             'Booked Surgery',
-                                             'Won (Surgery)', 'Won (GLP -1)',
-                                             'Lost'],                color: 'blue'   },
-  // Northstar win path: booked or completed surgery.
-  { label: 'Booked Surgery %', stageNames: ['Booked Surgery',
-                                             'Won (Surgery)'],       color: 'green'  },
-  // Secondary win path: GLP-1 downsell converted.
-  { label: 'GLP-1 Won %',      stageNames: ['Won (GLP -1)'],         color: 'amber'  },
-  // Parked in finance approval — worth watching so leads don't stall.
-  { label: 'Awaiting Finance %', stageNames: ['Waiting for Finance'], color: 'purple' },
-  // Combined win rate — Surgery + GLP-1 as a % of every lead.
-  { label: 'Combined Won %',   stageNames: ['Won (Surgery)',
-                                             'Won (GLP -1)'],         color: 'pink'   },
+  // Booked a consult = anyone past New Lead (Not Booked), excluding
+  // auto-DQ'd leads. Includes every downstream post-booking stage.
+  { label: 'Consult 1 Booked %', stageNames: ['Consult 1 - Call Booked',
+                                               'Meeting Cancelled', 'No Show',
+                                               'Unqualified (Post Call 1)',
+                                               'Good Fit, No Consult Booked',
+                                               'Consult 2 - In Office',
+                                               'Good Fit, Waiting to Proceed',
+                                               'Good Fit, Lost The Deal',
+                                               'New Patient Won'],      color: 'blue'   },
+  // Second-consult booking rate — a strong buying signal.
+  { label: 'Consult 2 Booked %', stageNames: ['Consult 2 - In Office',
+                                               'Good Fit, Waiting to Proceed',
+                                               'Good Fit, Lost The Deal',
+                                               'New Patient Won'],      color: 'green'  },
+  // Pipeline parked waiting for the patient to proceed with treatment.
+  { label: 'Waiting to Proceed %',
+                                 stageNames: ['Good Fit, Waiting to Proceed'],
+                                                                        color: 'amber'  },
+  // Northstar close rate.
+  { label: 'New Patient Won %',  stageNames: ['New Patient Won'],       color: 'pink'   },
   // No-show rate — pre-consult drop-off.
-  { label: 'No Show %',        stageNames: ['No Show'],               color: 'red'    }
+  { label: 'No Show %',          stageNames: ['No Show'],               color: 'red'    }
 ];
 
 /**
  * NOTE_BREAKDOWN_STAGES — stages whose Sales-team notes are worth
- * charting as top reasons. Left empty for Dr Athré until structured
- * note codes are introduced.
+ * charting as top reasons. Dr Bensoussan doesn't have structured note
+ * codes yet, so left empty.
  */
 const NOTE_BREAKDOWN_STAGES = [];
 
@@ -99,129 +85,75 @@ const NOTE_BREAKDOWN_STAGES = [];
  * tapering bar).
  *
  * See Code.gs `computeFunnels` for the full step spec. Every count
- * below mirrors the tracker-sheet COUNTIFS formulas exactly.
+ * below mirrors the client's tracker-sheet COUNTIFS formulas exactly.
  */
 const FUNNELS = [
-  // -----------------------------------------------------------------------
-  // Primary funnel: Booked Surgery (northstar). Each step is a strict
-  // subset of the prior step so the funnel tapers left-to-right.
-  //
-  // GLP-1 downsell leads are excluded from EVERY step here via
-  // excludeGlpDownsell: true — they're auto-routed onto their own path
-  // at form submission and belong in the secondary funnel below.
-  // -----------------------------------------------------------------------
   {
-    title:    'Booked Surgery Funnel',
-    subtitle: 'Northstar — Meta click → form → consult → surgery.',
+    title:    'Patient Acquisition Funnel',
+    subtitle: 'Meta click → form → consult 1 → consult 2 → new patient won.',
     steps: [
       // -------------------------------------------------------------------
-      // Row-3 (Target KPIs) column map for Dr Athré's monthly sheet
-      // ("SEP - 2026", "OCT - 2026", …). Same layout as the DTO tracker
-      // for columns A-U; the count / rate columns (V+) are assumed to
-      // follow the DTO pattern — update if Dr Athré's tracker differs.
+      // Row-3 (Target KPIs) column map — read from the client's screenshot
+      // of SEP/OCT - 2026. Row 2 = headers, row 3 = targets, row 4 = totals.
       //
-      //   D  Cost Per Lead           N  CPM                   V  # Booked Consults
-      //   E  Cost Per Qualified Lead O  Ad Spend              W  # of Consults Due
-      //   F  Cost per booked call    P  CPLC                  X  # of Show ups
-      //   G  Cost Per Show Up        Q  U. Outbound Clicks    Y  # of qualified show ups
-      //   H  Cost Per Qual. Show Up  R  U.O. CTR              Z  # of new sales
-      //   I  CAC                     T  # of Leads            AB % Landing Page Conversion
-      //   J  Total pipeline gen.     U  # of Qualified Leads  AC % Qualified lead rate
-      //   K  Total Revenue closed                             AD % good fit → book consult
-      //   L  ROI                                              AE % show up rate
-      //                                                       AF % Qualified Leads from show ups
-      //                                                       AG % Close Rate
+      //   G  Cost Per Show Up      N  CPM                   V  # Booked Consults
+      //   H  Cost Per Qual. Show   O  Ad Spend              W  # of Consults Done
+      //   I  Patient Acq. Cost     P  CPLC                  X  # of Show ups
+      //   J  Total pipeline gen.   Q  U. Outbound Clicks    Y  # of qualified show ups
+      //   K  Total Revenue closed  R  U.O.CTR               Z  # New Patients
+      //   L  ROI                   T  # of Leads            AB % Landing Page Conversion
+      //                                                     AC % Qualified lead rate
+      //                                                     AD % of the good fit leads who book consult
+      //                                                     AE % show up rate
+      //                                                     AF % Qualified Leads from show ups   (assumed)
+      //                                                     AG % Close Rate                      (assumed)
+      //
+      // Columns past AE aren't fully visible in the client screenshot;
+      // AF/AG are an educated guess based on the DTO/Athré tracker pattern.
+      // Update if the actual sheet differs.
       // -------------------------------------------------------------------
       { label: 'Total Clicks',            sublabel: 'Meta outbound clicks',
         externalMetric: 'clicks',
-        kpiColumn: 'Q',  kpiLabel: 'Clicks',                       kpiFormat: 'int' },
+        kpiColumn: 'Q',  kpiLabel: 'Clicks',                          kpiFormat: 'int' },
       { label: 'Landing Page CVR',        sublabel: 'Form submissions (all leads)',
         stageNames: '*ALL*',
-        kpiColumn: 'AB', kpiLabel: '% Landing Page Conversion',    kpiFormat: 'pct' },
-      // # of Qualified Leads: E<>Unqualified (Automatic), E<>Fake Lead,
-      //                       E<>Unqualified (Post Call), Z<>GLP-1 Downsell.
-      { label: 'Qualified Leads',         sublabel: 'Surgery-eligible (excl. Unqualified & GLP-1)',
-        count: { excludeCategories: ['Unqualified (Automatic)',
-                                     'Fake Lead',
-                                     'Unqualified (Post Call)'],
-                 excludeGlpDownsell: true },
-        kpiColumn: 'AC', kpiLabel: '% Qualified lead rate',        kpiFormat: 'pct' },
-      // # Booked Consults: also excludes New Lead (Not Booked) and
-      // Cold Lead(s). Does NOT re-exclude Unqualified (Post Call) —
-      // they booked the meeting before being disqualified so they still
-      // count as a booked consult here.
-      { label: 'Booked Consults',         sublabel: 'A meeting was scheduled',
-        count: { excludeCategories: ['New Lead (Not Booked)',
-                                     'Unqualified (Automatic)',
-                                     'Fake Lead',
-                                     'Cold Lead', 'Cold Leads'],
-                 excludeGlpDownsell: true },
-        kpiColumn: 'AD', kpiLabel: '% good fit → book consult',    kpiFormat: 'pct' },
-      // # of Consults Done: also excludes Meeting 1 Booked (still-scheduled)
-      // and Meeting Cancelled (called off before it happened). Denominator
-      // for Show Up Rate below — matches Show Up % = Y / X in the tracker.
+        kpiColumn: 'AB', kpiLabel: '% Landing Page Conversion',       kpiFormat: 'pct' },
+      // # Booked Consults: E <> New Lead (Not Booked). Note: unlike other
+      // clients, the Bensoussan formula does NOT additionally exclude
+      // DQ Automatic or Fake Lead — any lead past "Not Booked" counts.
+      { label: 'Booked Consults',         sublabel: 'Past the "not booked" phase',
+        count: { excludeCategories: ['New Lead (Not Booked)'] },
+        kpiColumn: 'AD', kpiLabel: '% good fit → book consult',       kpiFormat: 'pct' },
+      // # of Consults Done: also excludes Consult 1 - Call Booked
+      // (still-scheduled) and Meeting Cancelled (called off beforehand).
+      // Denominator for Show Up Rate — matches Show Up % = X / W.
       { label: 'Consults Done',           sublabel: 'Past the "still-scheduled" phase',
         count: { excludeCategories: ['New Lead (Not Booked)',
-                                     'Meeting 1 Booked',
-                                     'Unqualified (Automatic)',
-                                     'Fake Lead',
-                                     'Cold Lead', 'Cold Leads',
-                                     'Meeting Cancelled'],
-                 excludeGlpDownsell: true },
-        kpiColumn: 'W',  kpiLabel: 'Target consults due',          kpiFormat: 'int' },
+                                     'Consult 1 - Call Booked',
+                                     'Meeting Cancelled'] },
+        kpiColumn: 'W',  kpiLabel: 'Target consults done',            kpiFormat: 'int' },
       // # of Show ups: also excludes No Show.
       { label: 'Show Up Rate',            sublabel: 'Attended the consult',
         count: { excludeCategories: ['New Lead (Not Booked)',
-                                     'Meeting 1 Booked',
+                                     'Consult 1 - Call Booked',
                                      'Meeting Cancelled',
-                                     'No Show',
-                                     'Unqualified (Automatic)',
-                                     'Fake Lead',
-                                     'Cold Lead', 'Cold Leads'],
-                 excludeGlpDownsell: true },
-        kpiColumn: 'AE', kpiLabel: '% show up rate',               kpiFormat: 'pct' },
-      // # of qualified show ups: also excludes Unqualified (Post Call).
+                                     'No Show'] },
+        kpiColumn: 'AE', kpiLabel: '% show up rate',                  kpiFormat: 'pct' },
+      // # of qualified show ups: also excludes Unqualified (Post Call 1).
+      // Note: Bensoussan's "# of qualified show ups" formula does NOT
+      // exclude DQ Automatic either (unlike Dr Athré). Keep the step
+      // definition matching the formula verbatim.
       { label: 'Qualified Show Ups',      sublabel: 'Attended and stayed qualified post-call',
         count: { excludeCategories: ['New Lead (Not Booked)',
-                                     'Meeting 1 Booked',
+                                     'Consult 1 - Call Booked',
                                      'Meeting Cancelled',
                                      'No Show',
-                                     'Unqualified (Automatic)',
-                                     'Unqualified (Post Call)',
-                                     'Fake Lead',
-                                     'Cold Lead', 'Cold Leads'],
-                 excludeGlpDownsell: true },
-        kpiColumn: 'AF', kpiLabel: '% Qualified Leads from show ups', kpiFormat: 'pct' },
-      // # of new Surgeries: E = "Won (Surgery)". The northstar win.
-      { label: 'Sales',                   sublabel: 'Won (Surgery)',
-        count: { matchCategories: ['Won (Surgery)'] },
-        kpiColumn: 'AG', kpiLabel: '% Close Rate',                 kpiFormat: 'pct' }
-    ]
-  },
-
-  // -----------------------------------------------------------------------
-  // Secondary funnel: GLP-1 downsell. Auto-routed at form submission via
-  // col Z = "GLP-1 Downsell". Rendered below the primary funnel with the
-  // pink treatment.
-  //
-  // No KPI columns wired on the middle / last step: Dr Athré's tracker
-  // layout past col U isn't fully confirmed yet — update the kpiColumn
-  // letters here once the % GLP-1 Downsell rate and % Close Rate (GLP-1)
-  // column positions are known.
-  // -----------------------------------------------------------------------
-  {
-    title:    'GLP-1 Downsell Funnel',
-    subtitle: 'Secondary — auto-routed at form when a lead doesn\'t qualify for surgery.',
-    steps: [
-      { label: 'Total Clicks',                 sublabel: 'Meta outbound clicks',
-        externalMetric: 'clicks',
-        kpiColumn: 'Q', kpiLabel: 'Clicks', kpiFormat: 'int' },
-      // # of GLP-1 Downsell: col Z = "GLP-1 Downsell".
-      { label: 'Bad Fit Lead in Funnel, GLP-1', sublabel: 'Auto-routed to GLP-1 (flag column Z)',
-        count: { matchGlpDownsell: true } },
-      // # of new GLP-1: E = "Won (GLP -1)".
-      { label: 'Sales',                         sublabel: 'Won (GLP -1)',
-        count: { matchCategories: ['Won (GLP -1)'] } }
+                                     'Unqualified (Post Call 1)'] },
+        kpiColumn: 'AC', kpiLabel: '% Qualified lead rate',           kpiFormat: 'pct' },
+      // # New Patients: E = "New Patient Won". The northstar win.
+      { label: 'Sales',                   sublabel: 'New Patient Won',
+        count: { matchCategories: ['New Patient Won'] },
+        kpiColumn: 'AG', kpiLabel: '% Close Rate',                    kpiFormat: 'pct' }
     ]
   }
 ];
