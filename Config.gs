@@ -28,7 +28,8 @@ const CONFIG = {
   //    Set a value to '' to disable that field entirely.
   // ---------------------------------------------------------------------------
   COLUMNS: {
-    // Full Dr Bensoussan Lead Data column map (from client spec):
+    // Full Dr Bensoussan Lead Data column map (from client spec, for
+    // reference — not all columns feed the dashboard yet):
     //   A Date            H Lead Value         O Creative Preview Link
     //   B Name            I Sale Revenue       P Ad Thumbnail
     //   C Email           J Source             Q Page Variant
@@ -38,33 +39,21 @@ const CONFIG = {
     //     Time            N Preview Link       U-AB Form questions
     //   G Sales team notes
     //
-    // Every column below is documented even when it's not consumed by
-    // the shared dashboard yet — that way when a new tab or metric is
-    // added later, the mapping is already in place.
+    // Only the fields the shared dashboard consumes are declared below —
+    // adding e.g. `closeDate: 'T'` would just clutter the mapping footer
+    // without feeding any current chart. Introduce them (and the matching
+    // Code.gs/dashboard.html features) when a new metric needs them.
     date:            'A',              // A — when the lead came in
     name:            'B',              // B
     email:           'C',              // C
     phone:           'D',              // D — Phone Number
     leadCategory:    'E',              // E — Lead Category
-    bookedCallTime:  'F',              // F — Booked Call Time
-                                        //     (present on the sheet; not yet
-                                        //      surfaced in the shared dashboard)
     salesNotes:      'G',              // G — Sales team notes
-    leadValue:       'H',              // H — Lead Value (estimated pipeline $)
-                                        //     (present on the sheet; not yet
-                                        //      surfaced in the shared dashboard —
-                                        //      dashboard uses Sale Revenue below)
     saleRevenue:     'I',              // I — Sale Revenue (closed $)
     source:          'J',              // J — Source
     campaign:        'K',              // K — Campaign ID
     adSet:           'L',              // L — Ad set ID
     ad:              'M',              // M — Ad ID
-    funnelType:      'S',              // S — Funnel Type
-                                        //     (present on the sheet; not yet
-                                        //      surfaced in the shared dashboard)
-    closeDate:       'T',              // T — Close Date
-                                        //     (present on the sheet; not yet
-                                        //      surfaced in the shared dashboard)
     pageVariant:     'Q',              // Q — Page Variant
     fbclid:          'R',              // R — Fbclid
 
@@ -74,13 +63,11 @@ const CONFIG = {
     // P — Ad Thumbnail (=IMAGE(...) formula, fallback for video creatives)
     adPreviewUrl:        'N',
     adThumbnailUrl:      'O',
-    adThumbnailFallback: 'P',
+    adThumbnailFallback: 'P'
 
-    // ---- Secondary auto-routing category flag -------------------------
-    // Dr Bensoussan has no secondary auto-routing column (unlike Dr Beltre
-    // or Dr Athré which flag GLP-1 downsell leads). Left blank so the
-    // funnel counts don't try to filter on a non-existent column.
-    glpDownsellFlag:     ''
+    // Secondary auto-routing flag (glpDownsellFlag): not used by Dr
+    // Bensoussan — the client has no GLP-1 downsell path, so no column
+    // is declared. The shared Code.gs treats a missing key as disabled.
   },
 
   // ---------------------------------------------------------------------------

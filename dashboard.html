@@ -788,7 +788,13 @@ function fillSelect(el, values, allLabel, preserve) {
 // ----- Footnote ------------------------------------------------------------
 function paintFootnote(p) {
   const ts = new Date(p.refreshedAt).toLocaleString();
-  const cols = Object.keys(p.columnsResolved).map(k => k + ' → ' + p.columnsResolved[k]).join('  •  ');
+  // Only show columns that actually resolved — hiding "— (not found)"
+  // entries keeps per-client Config fields that are disabled (empty
+  // string) or belong to an optional feature off the footer.
+  const cols = Object.keys(p.columnsResolved)
+    .filter(k => !/not found/i.test(String(p.columnsResolved[k])))
+    .map(k => k + ' → ' + p.columnsResolved[k])
+    .join('  •  ');
   const rng  = p.range;
   const span = (rng.fromIso && rng.toIso) ?
     (' • range: ' + fmt.shortDate(rng.fromIso) + ' → ' + fmt.shortDate(rng.toIso)) : '';
